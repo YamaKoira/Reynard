@@ -1,0 +1,41 @@
+{
+  "manifest_version": 2,
+  "name": "Reynard",
+  "version": "0.4.2",
+  "description": "Right-click anything and download it with Reynard.",
+  "icons": {
+    "96": "icon.png"
+  },
+  "permissions": [
+    "contextMenus",
+    "nativeMessaging",
+    "notifications",
+    "storage",
+    "https://api.github.com/*"
+  ],
+  "background": {
+    "scripts": [
+      "background.js"
+    ],
+    "persistent": true
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "reynard@reynard-yamakoira",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
+    }
+  },
+  "browser_action": {
+    "default_icon": "icons/idle.png",
+    "default_title": "Reynard",
+    "default_popup": "popup/popup.html"
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  }
+}

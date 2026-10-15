@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <nav class="tabs">
+    <button class="tab active" data-tab="downloads">Downloads</button>
+    <button class="tab" data-tab="status">Status</button>
+    <button class="tab" data-tab="settings">Settings</button>
+  </nav>
+  <div id="msg" hidden></div>
+
+  <section id="downloads">
+    <div id="offline" class="notice bad" hidden></div>
+    <div id="list"></div>
+    <button id="clear" class="btn danger wide">Clear Downloads</button>
+  </section>
+
+  <section id="status" hidden>
+    <div class="panel">
+      <div class="kv"><span class="k">Reynard</span><span class="v"><span id="dot" class="dot"></span><span id="st-reynard">checking...</span></span></div>
+      <div class="kv"><span class="k">yt-dlp</span><span class="v" id="st-ytdlp">checking...</span></div>
+      <div class="kv"><span class="k">Settings file</span><span class="v path" id="st-settings">-</span></div>
+    </div>
+    <div class="actions">
+      <button id="check" class="btn">Check for updates</button>
+      <button id="update" class="btn primary" disabled>Update yt-dlp</button>
+    </div>
+    <pre id="update-out" hidden></pre>
+  </section>
+
+  <script src="popup.js"></script>
+</body>
+</html>

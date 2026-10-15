@@ -1,0 +1,63 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Reynard settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Reynard settings</h1>
+      <p class="muted">Saved to <code id="path">...</code>. You can still edit that file by hand: your comments are kept when you save here.</p>
+    </header>
+
+    <div id="banner" class="banner bad" hidden></div>
+
+    <section class="card">
+      <h2>General</h2>
+      <label class="field">
+        <span class="label">Download folder</span>
+        <span class="with-button"><input id="default-dir" type="text" spellcheck="false" title="Windows variables work here, for example %USERPROFILE%\Downloads"><button id="browse-default" class="btn" type="button">Browse...</button></span>
+      </label>
+      <div class="field">
+        <span class="label">Flags</span>
+        <div id="default-flags"></div>
+      </div>
+      <label class="check"><input id="show-toasts" type="checkbox"> Desktop notification when a download starts <span class="muted">(the toolbar fox works without it)</span></label>
+      <details>
+        <summary>Advanced</summary>
+        <label class="field"><span class="label">yt-dlp program</span><input id="yt-dlp" type="text" spellcheck="false"></label>
+        <label class="field"><span class="label">ffmpeg folder</span><input id="ffmpeg-dir" type="text" spellcheck="false"></label>
+        <label class="field"><span class="label">File name template</span><input id="output-template" type="text" spellcheck="false"></label>
+        <p class="muted">Relative paths are relative to the Reynard folder.</p>
+      </details>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Sites</h2>
+        <button id="add-site" class="btn primary" type="button">Add site</button>
+      </div>
+      <p class="muted">The first rule that matches a link wins. Several patterns per rule are fine, separated by commas or spaces. They match the whole link: <code>*</code> = anything, <code>?</code> = one character. A rule's flags are added on top of the default flags unless you untick "Start from the default flags".</p>
+      <div id="sites"></div>
+      <div id="no-sites" class="empty" hidden>No site rules yet. Everything goes to the default folder with the default flags.</div>
+    </section>
+
+    <section class="card">
+      <h2>Try a link</h2>
+      <input id="try" type="text" placeholder="Paste a link to see which rule it would use" spellcheck="false">
+      <div id="try-result" class="muted"></div>
+    </section>
+  </main>
+
+  <footer>
+    <span id="dirty" class="muted"></span>
+    <button id="revert" class="btn" type="button" disabled>Revert</button>
+    <button id="save" class="btn primary" type="button" disabled>Save</button>
+  </footer>
+
+  <script src="flags.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

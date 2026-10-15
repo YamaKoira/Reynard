@@ -1,0 +1,68 @@
+:root {
+  --bg: #1b1b1d; --panel: #242427; --line: #34343a; --text: #e8e8ea; --muted: #9a9aa3;
+  --blue: #3b82c4; --green: #3aa76d; --red: #d64545; --grey: #7a7a84; --orange: #e8742a;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text);
+  font: 12px/1.3 system-ui, "Segoe UI", sans-serif; }
+body { width: 340px; padding: 6px; }
+
+.tabs { display: flex; gap: 3px; margin-bottom: 5px; }
+.tab { flex: 1; padding: 4px; border: 0; border-radius: 6px; background: transparent;
+  color: var(--muted); font: inherit; font-weight: 600; cursor: pointer; }
+.tab.active { background: var(--panel); color: var(--text); }
+
+#msg { margin-bottom: 5px; padding: 4px 8px; border-radius: 6px; font-size: 11px; }
+#msg.bad, .notice.bad { background: #3a1f1f; color: #ffb4b4; }
+#msg.good { background: #1d3328; color: #a7e3c0; }
+.notice { margin-bottom: 5px; padding: 4px 8px; border-radius: 6px; font-size: 11px; }
+
+#list { max-height: 360px; overflow-y: auto; margin-bottom: 5px; }
+.empty { padding: 14px 0; text-align: center; color: var(--muted); }
+
+.card { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--grey);
+  border-radius: 6px; padding: 4px 7px 5px; margin-bottom: 4px; }
+.card.blue { border-left-color: var(--orange); }
+.card.green { border-left-color: var(--green); }
+.card.red { border-left-color: var(--red); }
+.row { display: flex; align-items: center; gap: 5px; }
+.site { flex: 1; min-width: 0; font-weight: 700; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pill { padding: 0 6px; border-radius: 999px; font-size: 9.5px; font-weight: 700; letter-spacing: .3px; line-height: 15px; }
+.pill.blue { background: var(--blue); color: #fff; }
+.pill.green { background: #1d3328; color: #6fdc9f; }
+.pill.red { background: #3a1f1f; color: #ff9b9b; }
+.pill.grey { background: #33333a; color: #b4b4bd; }
+.line { color: var(--muted); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.err { color: #ff9b9b; font-size: 10.5px; margin-top: 2px; word-break: break-word; }
+.bar { height: 3px; border-radius: 2px; background: #333339; margin: 4px 0 1px; overflow: hidden; }
+.fill { height: 100%; width: 0; background: var(--orange); transition: width .4s; }
+.bar.unknown .fill { width: 30%; opacity: .6; }
+.prog { color: var(--muted); font-size: 10.5px; }
+
+.btn { padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: #2d2d32;
+  color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
+.btn:hover:not(:disabled) { background: #38383e; }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.mini { padding: 1px 7px; font-size: 10.5px; }
+.btn.wide { width: 100%; }
+.btn.danger { background: #6f1d1b; border-color: #8a2a28; }
+.btn.danger:hover:not(:disabled) { background: #852624; }
+.btn.primary { background: var(--orange); border-color: var(--orange); color: #1b1b1d; }
+.btn.primary:hover:not(:disabled) { background: #f08541; }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 1px 8px; }
+.kv { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.kv:last-child { border-bottom: 0; }
+.k { color: var(--muted); white-space: nowrap; }
+.v { text-align: right; word-break: break-word; }
+.v.path { font-size: 10px; color: var(--muted); }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; background: var(--grey); }
+.dot.ok { background: var(--green); }
+.dot.bad { background: var(--red); }
+.tag { margin-left: 5px; padding: 0 6px; border-radius: 999px; font-size: 10px; font-weight: 700; }
+.tag.old { background: #3a2a14; color: #ffc27a; }
+.tag.fresh { background: #1d3328; color: #6fdc9f; }
+.actions { display: flex; gap: 5px; margin-top: 5px; }
+.actions .btn { flex: 1; }
+#update-out { margin: 5px 0 0; padding: 5px 7px; background: #151517; border-radius: 6px; color: var(--muted);
+  font-size: 10px; white-space: pre-wrap; word-break: break-word; max-height: 110px; overflow-y: auto; }
