@@ -1,6 +1,6 @@
 # Reynard
 
-> The RipperFox successor[cite: 1].
+> The RipperFox successor. This is a placeholder README.MD.
 
 Reynard is a cross-component utility featuring a Rust backend host and a companion browser extension designed for management, automation, and asset acquisition.
 
