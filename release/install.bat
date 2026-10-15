@@ -16,8 +16,8 @@ rem  uninstall.bat removes all of it. Run this script again to update.
 rem =====================================================================
 
 rem ---- the only things that ever need editing ----
-set "REYNARD_URL=https://github.com/YOUR-GITHUB-NAME/Reynard/releases/latest/download/reynard.exe"
-set "ADDON_URL=https://addons.mozilla.org/firefox/addon/YOUR-ADDON-NAME/"
+set "REYNARD_URL=https://github.com/YamaKoira/Reynard/releases/download/Release/reynard.exe"
+set "ADDON_URL=https://github.com/YamaKoira/Reynard/releases/download/Release/reynard.xpi"
 set "EXT_ID=reynard@reynard-yamakoira"
 set "HOST_NAME=io.reynard.host"
 set "YTDLP_URL=https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
