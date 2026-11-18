@@ -1,7 +1,6 @@
 "use strict";
-const HOST = "io.reynard.host";
 const $ = (sel) => document.querySelector(sel);
-const send = (msg) => browser.runtime.sendNativeMessage(HOST, msg);
+const send = (msg) => browser.runtime.sendNativeMessage(REYNARD_HOST, msg);
 
 // Text always goes in as text nodes, never HTML (URLs and paths come from outside).
 function el(tag, props = {}, ...kids) {
@@ -24,6 +23,9 @@ function banner(text, bad = true) {
   clearTimeout(bannerTimer);
   if (!bad) bannerTimer = setTimeout(() => (box.hidden = true), 4000);
 }
+
+document.title = `${REYNARD_LABEL} settings`;
+$("h1").textContent = `${REYNARD_LABEL} settings`;
 
 // ------------------------------------------------------------- flag toggles
 
@@ -151,6 +153,15 @@ function siteComponent(site) {
   const editor = flagsEditor(site.args || "", { additive: inherit.checked, headLeft: inheritLabel });
   inherit.addEventListener("change", () => editor.setAdditive(inherit.checked));
 
+  const idChoice = el(
+    "select",
+    { class: "id-choice", title: "Whether this site's file names contain the video ID" },
+    el("option", { value: "" }, "Follow the general setting"),
+    el("option", { value: "yes" }, "Include the video ID"),
+    el("option", { value: "no" }, "No video ID")
+  );
+  idChoice.value = site.include_id === true ? "yes" : site.include_id === false ? "no" : "";
+
   const title = el("span", { class: "title" });
   const up = el("button", { class: "btn small up", type: "button", title: "Move up (earlier rules win)", onclick: () => move(comp, -1) }, "\u2191");
   const down = el("button", { class: "btn small down", type: "button", title: "Move down", onclick: () => move(comp, 1) }, "\u2193");
@@ -163,6 +174,7 @@ function siteComponent(site) {
     el("label", { class: "field" }, el("span", { class: "label" }, "Patterns"), patterns),
     el("label", { class: "field" }, el("span", { class: "label" }, "Folder"),
       el("span", { class: "with-button" }, dir, el("button", { class: "btn browse", type: "button", onclick: () => browseInto(dir) }, "Browse..."))),
+    el("label", { class: "field" }, el("span", { class: "label" }, "Video ID"), idChoice),
     editor.root
   );
 
@@ -171,6 +183,7 @@ function siteComponent(site) {
     patterns,
     dir,
     inherit,
+    idChoice,
     editor,
     label(index, count) {
       const all = parsePatterns(patterns.value);
@@ -179,7 +192,7 @@ function siteComponent(site) {
       up.disabled = index === 0;
       down.disabled = index === count - 1;
     },
-    get: () => ({ patterns: parsePatterns(patterns.value), dir: dir.value.trim(), args: editor.getArgs(), inherit_args: inherit.checked }),
+    get: () => ({ patterns: parsePatterns(patterns.value), dir: dir.value.trim(), args: editor.getArgs(), inherit_args: inherit.checked, include_id: idChoice.value === "" ? null : idChoice.value === "yes" }),
   };
   patterns.addEventListener("input", renderSites);
   return comp;
@@ -210,7 +223,7 @@ function remove(comp) {
 }
 
 $("#add-site").addEventListener("click", () => {
-  const comp = siteComponent({ patterns: [], dir: "", args: "", inherit_args: true });
+  const comp = siteComponent({ patterns: [], dir: "", args: "", inherit_args: true, include_id: null });
   sites.push(comp);
   renderSites();
   updateDirty();
@@ -228,7 +241,12 @@ function collect() {
       default_dir: $("#default-dir").value.trim(),
       default_args: defaults ? defaults.getArgs() : "",
       output_template: $("#output-template").value.trim(),
-      show_toasts: $("#show-toasts").checked,
+      include_id: $("#include-id").checked,
+      rename_existing: $("#rename-existing").checked,
+      audio_format: $("#audio-format").value,
+      gif_fps: Number.parseInt($("#gif-fps").value, 10),
+      gif_width: Number.parseInt($("#gif-width").value, 10),
+      gif_keep_video: $("#gif-keep").checked,
     },
     site: sites.map((s) => s.get()),
   };
@@ -241,6 +259,16 @@ function validate() {
     $("#default-dir").classList.add("invalid");
     problems.push("The default download folder can't be empty.");
   }
+  const fps = Number.parseInt($("#gif-fps").value, 10);
+  if (!(fps >= 1 && fps <= 60)) {
+    $("#gif-fps").classList.add("invalid");
+    problems.push("GIF frames per second must be between 1 and 60.");
+  }
+  const width = Number.parseInt($("#gif-width").value, 10);
+  if (!(width >= 0 && width <= 4096)) {
+    $("#gif-width").classList.add("invalid");
+    problems.push("The GIF width must be between 0 and 4096 pixels (0 keeps the video's size).");
+  }
   sites.forEach((s, i) => {
     if (!parsePatterns(s.patterns.value).length) {
       s.patterns.classList.add("invalid");
@@ -250,12 +278,20 @@ function validate() {
   return problems;
 }
 
+// The stock templates follow the "video ID" choice; anything else is the person's own.
+const STOCK_TEMPLATES = ["%(title).150B [%(id)s].%(ext)s", "%(title).150B.%(ext)s"];
+function hasOwnTemplate(template) {
+  const t = template.trim();
+  return t !== "" && !STOCK_TEMPLATES.includes(t);
+}
+
 let baseline = "";
 function updateDirty() {
   const dirty = JSON.stringify(collect()) !== baseline;
   $("#save").disabled = !dirty;
   $("#revert").disabled = !dirty;
   $("#dirty").textContent = dirty ? "Unsaved changes" : "";
+  $("#id-note").hidden = !hasOwnTemplate($("#output-template").value);
   renderTry();
   return dirty;
 }
@@ -270,7 +306,12 @@ function fill(settings) {
   $("#yt-dlp").value = g.yt_dlp || "";
   $("#ffmpeg-dir").value = g.ffmpeg_dir || "";
   $("#output-template").value = g.output_template || "";
-  $("#show-toasts").checked = !!g.show_toasts;
+  $("#include-id").checked = g.include_id !== false;
+  $("#rename-existing").checked = !!g.rename_existing;
+  $("#audio-format").value = g.audio_format || "mp3";
+  $("#gif-fps").value = g.gif_fps ?? 15;
+  $("#gif-width").value = g.gif_width ?? 480;
+  $("#gif-keep").checked = !!g.gif_keep_video;
   defaults = flagsEditor(g.default_args || "");
   $("#default-flags").replaceChildren(defaults.root);
   sites = (settings.site || []).map(siteComponent);
@@ -326,11 +367,15 @@ function renderTry() {
   });
   const site = rule >= 0 ? now.site[rule] : null;
   const folder = (site && site.dir) || now.general.default_dir;
+  const idOn = site && typeof site.include_id === "boolean" ? site.include_id : now.general.include_id;
+  const own = hasOwnTemplate(now.general.output_template);
+  const fileName = own ? now.general.output_template.trim() : idOn ? "Title [id].ext" : "Title.ext";
   const flags = site ? (site.inherit_args ? [now.general.default_args, site.args] : [site.args]).filter(Boolean).join(" ") : now.general.default_args;
   out.replaceChildren(
     el("div", {}, el("b", {}, site ? `Rule ${rule + 1}` : "No rule matches"), site ? ` (pattern ${pattern})` : ": the defaults are used"),
     el("div", {}, "Folder: ", el("code", {}, folder)),
-    el("div", {}, "Flags: ", el("code", {}, flags || "(none)"))
+    el("div", {}, "Flags: ", el("code", {}, flags || "(none)")),
+    el("div", {}, "File name: ", el("code", {}, fileName), now.general.rename_existing ? " (numbered if the name is taken)" : "")
   );
 }
 

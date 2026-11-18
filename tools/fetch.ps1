@@ -1,4 +1,4 @@
-# Downloads yt-dlp.exe and ffmpeg into dist\bin (next to reynard.exe), if missing.
+# Downloads yt-dlp.exe, ffmpeg and Deno into dist\bin (next to reynard.exe), if missing.
 param([string]$Bin = "dist\bin")
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"   # much faster downloads
@@ -24,5 +24,13 @@ if (-not (Test-Path $ffmpeg)) {
         Copy-Item $f.FullName (Join-Path $Bin $name)
     }
     Remove-Item -Recurse -Force $tmp, $zip
+}
+$deno = Join-Path $Bin "deno.exe"
+if (-not (Test-Path $deno)) {
+    Write-Host "Downloading Deno (about 45 MB; yt-dlp needs it for YouTube) ..."
+    $zip = Join-Path $Bin "_deno.zip"
+    Invoke-WebRequest -UseBasicParsing "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip" -OutFile $zip
+    Expand-Archive -Path $zip -DestinationPath $Bin -Force
+    Remove-Item -Force $zip
 }
 Write-Host "Tools ready in $Bin"

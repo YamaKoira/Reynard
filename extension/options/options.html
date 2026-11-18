@@ -18,13 +18,30 @@
       <h2>General</h2>
       <label class="field">
         <span class="label">Download folder</span>
-        <span class="with-button"><input id="default-dir" type="text" spellcheck="false" title="Windows variables work here, for example %USERPROFILE%\Downloads"><button id="browse-default" class="btn" type="button">Browse...</button></span>
+        <span class="with-button"><input id="default-dir" type="text" spellcheck="false" title="Environment variables work here, for example %USERPROFILE%\Downloads on Windows or %HOME%/Downloads on Linux"><button id="browse-default" class="btn" type="button">Browse...</button></span>
       </label>
       <div class="field">
         <span class="label">Flags</span>
         <div id="default-flags"></div>
       </div>
-      <label class="check"><input id="show-toasts" type="checkbox"> Desktop notification when a download starts <span class="muted">(the toolbar fox works without it)</span></label>
+      <div class="field">
+        <span class="label">Download as</span>
+        <span class="inline-fields">
+          <label title="The format for right-click, Reynard, Download as audio">Audio
+            <select id="audio-format"><option value="mp3">mp3</option><option value="m4a">m4a</option><option value="opus">opus</option><option value="flac">flac</option><option value="best">best (original)</option></select></label>
+          <label title="Frames per second of GIFs">GIF <input id="gif-fps" type="number" min="1" max="60"> fps</label>
+          <label title="0 keeps the video's own size. GIFs are never scaled up."><input id="gif-width" type="number" min="0" max="4096"> px wide <span class="muted">(0 = original)</span></label>
+          <label class="check" title="Keep the downloaded video next to the GIF"><input id="gif-keep" type="checkbox"> keep the video</label>
+        </span>
+      </div>
+      <div class="field">
+        <span class="label">File names</span>
+        <span class="inline-fields">
+          <label class="check" title="Adds the video's ID to the file name, like Title [fvfABNW44Ts].mp4. Switch it off for plain Title.mp4. A site rule can decide differently."><input id="include-id" type="checkbox"> Include the video ID <span class="muted">(Title [id].mp4)</span></label>
+          <label class="check" title="If a file with the same name is already in the folder, save the new one as Name (1).ext, Name (2).ext ... instead of skipping it."><input id="rename-existing" type="checkbox"> Rename if file exists <span class="muted">(Name (1).mp4)</span></label>
+        </span>
+        <span id="id-note" class="muted" hidden>You wrote your own file name template (Advanced), so the video ID setting has no effect.</span>
+      </div>
       <details>
         <summary>Advanced</summary>
         <label class="field"><span class="label">yt-dlp program</span><input id="yt-dlp" type="text" spellcheck="false"></label>
@@ -57,6 +74,8 @@
     <button id="save" class="btn primary" type="button" disabled>Save</button>
   </footer>
 
+  <script src="../compat.js"></script>
+  <script src="../config.js"></script>
   <script src="flags.js"></script>
   <script src="options.js"></script>
 </body>

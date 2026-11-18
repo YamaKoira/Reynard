@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Reynard",
-  "version": "0.4.2",
+  "version": "0.7.3",
   "description": "Right-click anything and download it with Reynard.",
   "icons": {
     "96": "icon.png"
@@ -9,12 +9,13 @@
   "permissions": [
     "contextMenus",
     "nativeMessaging",
-    "notifications",
     "storage",
     "https://api.github.com/*"
   ],
   "background": {
     "scripts": [
+      "compat.js",
+      "config.js",
       "background.js"
     ],
     "persistent": true

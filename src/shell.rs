@@ -105,8 +105,26 @@ if ($dialog.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK) { Wr
     Ok(if path.is_empty() { None } else { Some(path.to_string()) })
 }
 
+/// Linux: whichever of zenity (GTK) or kdialog (KDE) is installed.
 #[cfg(not(windows))]
-pub fn pick_folder(_start: &str) -> Result<Option<String>, String> {
-    let _ = Stdio::null();
-    Err("The folder picker is only available on Windows - type the path instead.".into())
+pub fn pick_folder(start: &str) -> Result<Option<String>, String> {
+    let start_dir = if Path::new(start).is_dir() { format!("{}/", start.trim_end_matches('/')) } else { String::new() };
+    let attempts: [(&str, Vec<String>); 2] = [
+        ("zenity", vec!["--file-selection".into(), "--directory".into(), "--title=Choose a folder".into(), format!("--filename={start_dir}")]),
+        ("kdialog", vec!["--getexistingdirectory".into(), if start_dir.is_empty() { ".".into() } else { start_dir.clone() }]),
+    ];
+    for (program, args) in attempts {
+        match Command::new(program).args(&args).stdin(Stdio::null()).stderr(Stdio::null()).output() {
+            Ok(out) if out.status.success() => {
+                let path = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                return Ok(if path.is_empty() { None } else { Some(path) });
+            }
+            // both programs exit with 1 when the dialog is cancelled
+            Ok(out) if out.status.code() == Some(1) => return Ok(None),
+            Ok(_) => return Err(format!("{program} could not open the folder dialog - type the path instead.")),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => continue,
+            Err(e) => return Err(format!("could not run {program}: {e}")),
+        }
+    }
+    Err("No folder dialog found. Install zenity (sudo pacman -S zenity) or type the path instead.".into())
 }

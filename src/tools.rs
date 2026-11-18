@@ -6,7 +6,7 @@ use std::process::{Command, Stdio};
 fn ytdlp_command() -> Result<Command, String> {
     let settings = Settings::load().map_err(|e| format!("settings.toml: {e}"))?;
     let mut cmd = Command::new(paths::resolve_tool(&settings.general.yt_dlp));
-    cmd.env("PYTHONIOENCODING", "utf-8").stdin(Stdio::null());
+    cmd.arg("--ignore-config").env("PYTHONIOENCODING", "utf-8").stdin(Stdio::null());
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;

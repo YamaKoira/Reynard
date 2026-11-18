@@ -1,0 +1,10 @@
+# Add-on IDs for Chrome and other Chromium browsers. Read by the scripts; do not add quotes.
+# RELEASE: the add-on loaded unpacked from release-out. DEV: the "Reynard (dev)" copy from setup.
+# STORE_ID: fill in the ID the Chrome Web Store gives you, put the same ID into the CHROME_STORE_ID
+# line of scripts/install.sh, install.bat and install-local.bat, then run make-release again.
+# (The private halves of these keys were thrown away on purpose: they are not needed.)
+RELEASE_ID=gcdmloapgnddiblfbcpoonneajgmhpmj
+RELEASE_KEY=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAx7I3039wx7kQMsQRGPRW0eHjm0GsWJZlnGsGJwiAlc8a9zICSrv01PP7cZeZkqWsKWod48/c9qO9/F2uzqPpLHJUW5e20xWMiX6dVI7BGA1JxPnRvTpTO4Wz0XRVBuRqpBMd/Zx+H3M65JgX6z20Y4SAy689WX/wE900KfNwJRmYYQOstH56Z/ebqWaAo1OM3UhhSSMVdpUh/9B3CqCVliLdF0brR3uL6a7mPR7Cotl8IwxuqHIfKQFrg41LwDK4V9kqzhQfQbE3I/4YchJiU1dr4aLoHp5IVmQHKYIM4Mx8ChiPD/6Rky/uOMnvIHdGTQDgODfWIuUMzqxkJYifKwIDAQAB
+DEV_ID=lnbeccdjljdpkhpbkodbakoppibibaoo
+DEV_KEY=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqkfuAtgDaxGkVU7pi41jqEmFBeGqutXBtGsd8EZW+We3rfAoOx+ftxNiCIQNtsfTIv/xXomcb4yQVhkNo3QEaYIUYOe56CrVm/kcdfZxF2w3iHNUN4Iyfq0j5iRWaeuBkdqEY4hECfjWGzeSGen/h9bghpd2uexCxwNL1pEow+v2S3XY3HiVrte/pTJkwxFBO1EYHAzymc8P1dGIGsdnBLCmOn9Qd4dR6PoND6ASlIHlNvrLr+v/pv8c/yLKqiIO8z37wMpt3z0cxeUiEZl7xsjuTxVIkrilTX14kgPbZHy3N9qnqZ1b6LHWqJHrEemeZ9MqoA04D9g3FFyh8IMhkQIDAQAB
+STORE_ID=

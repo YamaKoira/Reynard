@@ -1,7 +1,6 @@
 "use strict";
-const HOST = "io.reynard.host";
 const $ = (sel) => document.querySelector(sel);
-const send = (msg) => browser.runtime.sendNativeMessage(HOST, msg);
+const send = (msg) => browser.runtime.sendNativeMessage(REYNARD_HOST, msg);
 
 // Small DOM helper. Text always goes in as text nodes, never as HTML, because
 // URLs and error messages come from the outside world.
@@ -81,6 +80,7 @@ function mini(label, cls, title, onclick) {
 function card(job) {
   const [label, color] = LABELS[job.status] || [String(job.status).toUpperCase(), "grey"];
   const active = job.status === "running" || job.status === "queued";
+  const kind = ["video", "audio", "gif"].includes(job.kind) ? job.kind : "video"; // old history has no kind
 
   // One compact header row: site, status, and the buttons that make sense now.
   const buttons = [];
@@ -90,7 +90,14 @@ function card(job) {
     buttons.push(mini("Folder", "", "Show the file in its folder", () => act({ type: "reveal", id: job.id }, "Opening the folder...")));
   }
   const kids = [
-    el("div", { class: "row" }, el("span", { class: "site", title: siteName(job.url) }, siteName(job.url)), el("span", { class: `pill ${color}` }, label), ...buttons),
+    el(
+      "div",
+      { class: "row" },
+      el("span", { class: "site", title: siteName(job.url) }, siteName(job.url)),
+      el("span", { class: `pill kind ${kind}`, title: `Downloaded as ${kind}` }, kind.toUpperCase()),
+      el("span", { class: `pill ${color}` }, label),
+      ...buttons
+    ),
     el("div", { class: "line", title: job.url }, job.url),
     el("div", { class: "line", title: job.dir }, job.dir),
   ];
@@ -104,6 +111,7 @@ function card(job) {
   } else if (job.status === "error" && job.error) {
     kids.push(el("div", { class: "err" }, job.error));
   }
+  if (job.status === "done" && job.note) kids.push(el("div", { class: "prog", title: job.note }, job.note));
   return el("div", { class: `card ${color}` }, ...kids);
 }
 
@@ -129,7 +137,7 @@ async function refresh() {
     }
     $("#offline").hidden = true;
   } catch (err) {
-    $("#offline").textContent = "Can't reach reynard.exe. Has setup.bat been run? (" + err.message + ")";
+    $("#offline").textContent = "Can't reach Reynard. Is it installed? (For the dev copy: has setup been run?) (" + err.message + ")";
     $("#offline").hidden = false;
   } finally {
     refreshing = false;
@@ -179,7 +187,7 @@ async function latestYtdlp(force) {
 function renderYtdlp() {
   const box = $("#st-ytdlp");
   if (!installed) {
-    box.textContent = "not found (run setup.bat)";
+    box.textContent = "not found (run the installer or setup again)";
     $("#update").disabled = true;
     return;
   }
@@ -202,20 +210,22 @@ async function checkLatest(force) {
 }
 
 async function loadStatus() {
+  // the add-on knows its own version without asking anyone
+  $("#st-addon").textContent = "v" + browser.runtime.getManifest().version;
   $("#st-reynard").textContent = "checking...";
   $("#dot").className = "dot";
   try {
     const reply = await send({ type: "status" });
     if (!reply || !reply.ok) throw new Error((reply && reply.error) || "no answer");
     $("#dot").className = "dot ok";
-    $("#st-reynard").textContent = "Ready, v" + reply.version;
+    $("#st-reynard").textContent = "Ready, v" + reply.version + (reply.build ? ` (${reply.build})` : "");
     $("#st-settings").textContent = reply.settings_path;
     installed = reply.ytdlp;
     renderYtdlp();
     await checkLatest(false);
   } catch (err) {
     $("#dot").className = "dot bad";
-    $("#st-reynard").textContent = "Can't reach reynard.exe";
+    $("#st-reynard").textContent = "Can't reach Reynard";
     $("#st-ytdlp").textContent = "-";
     flash(err.message);
   }

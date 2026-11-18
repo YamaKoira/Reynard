@@ -32,6 +32,10 @@ body { width: 340px; padding: 6px; }
 .pill.green { background: #1d3328; color: #6fdc9f; }
 .pill.red { background: #3a1f1f; color: #ff9b9b; }
 .pill.grey { background: #33333a; color: #b4b4bd; }
+.pill.kind { border: 1px solid; line-height: 13px; }
+.pill.kind.video { color: #b39dff; border-color: #7a5fd6; background: #1f1a36; }
+.pill.kind.audio { color: #6cb4ff; border-color: #3b82c4; background: #16283a; }
+.pill.kind.gif { color: #ffa45c; border-color: #e8742a; background: #2e2016; }
 .line { color: var(--muted); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .err { color: #ff9b9b; font-size: 10.5px; margin-top: 2px; word-break: break-word; }
 .bar { height: 3px; border-radius: 2px; background: #333339; margin: 4px 0 1px; overflow: hidden; }

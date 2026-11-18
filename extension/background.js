@@ -1,15 +1,51 @@
-const HOST = "io.reynard.host";
 const action = browser.action || browser.browserAction;
 
 // ---------------------------------------------------------------- context menu
 
-browser.runtime.onInstalled.addListener(() => {
-  browser.contextMenus.create({
-    id: "reynard-download",
-    title: "Download with Reynard",
-    contexts: ["link", "video", "audio", "image", "page"],
-  });
-});
+// The right-click menu. Firefox puts several top-level items of one add-on into one
+// submenu named after the add-on anyway, so there is exactly one top-level entry,
+// "Reynard", with the choices inside it. "Download" is your settings as they are;
+// the "as" entries change the kind (audio, GIF) and otherwise still follow your
+// site rules.
+const MENU_CONTEXTS = ["link", "video", "audio", "image", "page"];
+const MENU_ROOT = "reynard-root";
+const MENU = [
+  { id: "reynard-download", title: "Download", kind: "default" },
+  { id: "reynard-sep", type: "separator" },
+  // alphabetical, on purpose
+  { id: "reynard-audio", title: "Download as audio", kind: "audio" },
+  { id: "reynard-gif", title: "Download as GIF", kind: "gif" },
+  { id: "reynard-video", title: "Download as video", kind: "video" },
+];
+const KIND_OF = Object.fromEntries(MENU.filter((m) => m.kind).map((m) => [m.id, m.kind]));
+
+// Firefox never keeps the menu items of a persistent background page, so they
+// have to be created every time this page loads. (Creating them only in
+// runtime.onInstalled leaves the menu missing after a restart or a reload of the
+// background page, until the add-on is reinstalled.) removeAll first keeps this
+// safe to run more than once.
+function createMenu() {
+  return browser.contextMenus
+    .removeAll()
+    .then(() => {
+      browser.contextMenus.create({ id: MENU_ROOT, title: REYNARD_LABEL, contexts: MENU_CONTEXTS });
+      for (const item of MENU) {
+        const entry = { id: item.id, parentId: MENU_ROOT, contexts: MENU_CONTEXTS };
+        if (item.type) entry.type = item.type;
+        else entry.title = item.title;
+        browser.contextMenus.create(entry);
+      }
+    })
+    .catch((err) => console.error("[Reynard] could not create the menu:", err));
+}
+if (REYNARD_CHROME) {
+  // Chrome keeps the menu items between runs of its service worker, and this script runs
+  // again every time the worker wakes up, so they are only made when the add-on is
+  // installed or updated.
+  browser.runtime.onInstalled.addListener(createMenu);
+} else {
+  createMenu();
+}
 
 // Prefer the link, then the media source, then the page itself.
 // blob:/data: addresses are useless to yt-dlp, so they are skipped
@@ -20,34 +56,29 @@ function pickUrl(info) {
 }
 
 // Every message is also written to the Browser Console (Ctrl+Shift+J).
-// Desktop toasts are optional (settings.toml: show_toasts); the toolbar icon
-// below is the main feedback.
-function notify(message) {
-  console.log("[Reynard]", message);
-  browser.notifications
-    .create({
-      type: "basic",
-      title: "Reynard",
-      message,
-      iconUrl: browser.runtime.getURL("icon.png"),
-    })
-    .catch((err) => console.error("[Reynard] could not show notification:", err));
+// No desktop notifications: the toolbar fox is the feedback. A download that could not
+// be started turns it red for a few seconds (details in the tooltip and the console).
+function startFailed(message) {
+  console.error("[Reynard]", message);
+  show("error", `${REYNARD_LABEL}: ${message}`);
+  schedule(ERROR_SECONDS * 1000);
 }
 
 browser.contextMenus.onClicked.addListener(async (info) => {
+  const kind = KIND_OF[info.menuItemId];
+  if (!kind) return; // not one of ours (or the "Reynard" parent)
   const url = pickUrl(info);
-  if (!url) return notify("No downloadable URL here.");
+  if (!url) return startFailed("no downloadable URL here");
   try {
-    const reply = await browser.runtime.sendNativeMessage(HOST, { type: "download", url });
+    const reply = await browser.runtime.sendNativeMessage(REYNARD_HOST, { type: "download", url, kind });
     if (!reply || !reply.ok) {
-      return notify("Could not start: " + ((reply && reply.error) || "no answer from Reynard"));
+      return startFailed("could not start: " + ((reply && reply.error) || "no answer from Reynard"));
     }
-    console.log(`[Reynard] download #${reply.id} started -> ${reply.dir}`);
-    if (reply.toast !== false) notify(`Download #${reply.id} started -> ${reply.dir}`);
+    const what = reply.kind || "video";
+    console.log(`[Reynard] ${what} download #${reply.id} started -> ${reply.dir}`);
     schedule(0); // update the icon right away
   } catch (err) {
-    notify("Could not reach Reynard: " + err.message);
-    schedule(0);
+    startFailed("could not reach Reynard: " + err.message);
   }
 });
 
@@ -72,6 +103,7 @@ const FADE_POLL_MS = 1000; // while done/failed is showing, to time it out
 
 let timer = null;
 let shown = "";
+let lastPoll = 0;
 
 function show(state, title, badge = "") {
   const key = `${state}|${title}|${badge}`;
@@ -85,13 +117,18 @@ function show(state, title, badge = "") {
 
 function schedule(ms) {
   clearTimeout(timer);
+  // Chrome stops a service worker that has been idle for about 30 seconds. While a download
+  // runs or a state is fading, the polling itself keeps it awake. When idle it is left to
+  // sleep, and the alarm below wakes it up for the next look.
+  if (REYNARD_CHROME && ms >= IDLE_POLL_MS) return;
   timer = setTimeout(poll, ms);
 }
 
 async function poll() {
+  lastPoll = Date.now();
   let next = IDLE_POLL_MS;
   try {
-    const reply = await browser.runtime.sendNativeMessage(HOST, { type: "jobs" });
+    const reply = await browser.runtime.sendNativeMessage(REYNARD_HOST, { type: "jobs" });
     if (!reply || !reply.ok) throw new Error((reply && reply.error) || "no answer");
     const { jobs, now } = reply;
     const within = (j, seconds) => j.finished && now - j.finished <= seconds;
@@ -100,22 +137,31 @@ async function poll() {
     if (active.length) {
       const many = active.length > 1;
       const detail = active[0].progress ? ` ${active[0].progress}` : "";
-      show("active", `Reynard: downloading${many ? ` (${active.length})` : ""}${detail}`, many ? String(active.length) : "");
+      show("active", `${REYNARD_LABEL}: downloading${many ? ` (${active.length})` : ""}${detail}`, many ? String(active.length) : "");
       next = ACTIVE_POLL_MS;
     } else if (jobs.some((j) => j.status === "error" && within(j, ERROR_SECONDS))) {
-      show("error", "Reynard: a download failed");
+      show("error", `${REYNARD_LABEL}: a download failed`);
       next = FADE_POLL_MS;
     } else if (jobs.some((j) => j.status === "done" && within(j, DONE_SECONDS))) {
-      show("done", "Reynard: download finished");
+      show("done", `${REYNARD_LABEL}: download finished`);
       next = FADE_POLL_MS;
     } else {
-      show("idle", "Reynard: idle");
+      show("idle", `${REYNARD_LABEL}: idle`);
     }
   } catch (err) {
-    show("error", "Reynard: can't reach reynard.exe (has setup.bat been run?)");
+    show("error", `${REYNARD_LABEL}: can't reach the Reynard program (is it installed?)`);
     console.error("[Reynard] status check failed:", err);
   }
   schedule(next);
+}
+
+if (REYNARD_CHROME) {
+  // Wakes the sleeping worker; running this script then polls once by itself, so the
+  // alarm only polls if the worker was already awake and the last poll is a while ago.
+  browser.alarms.create("reynard-poll", { periodInMinutes: 0.5 });
+  browser.alarms.onAlarm.addListener(() => {
+    if (Date.now() - lastPoll > 5000) poll();
+  });
 }
 
 poll();

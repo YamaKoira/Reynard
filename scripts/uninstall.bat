@@ -18,6 +18,7 @@ if errorlevel 2 exit /b 0
 tasklist /FI "IMAGENAME eq reynard.exe" /NH 2>nul | find /I "reynard.exe" >nul && goto :running
 
 reg delete "HKCU\Software\Mozilla\NativeMessagingHosts\%HOST_NAME%" /f >nul 2>nul
+for %%K in ("Google\Chrome" "Microsoft\Edge" "BraveSoftware\Brave-Browser" "Chromium") do reg delete "HKCU\Software\%%~K\NativeMessagingHosts\%HOST_NAME%" /f >nul 2>nul
 rmdir /s /q "%RF_DIR%" 2>nul
 if exist "%RF_DIR%" goto :left
 
@@ -29,7 +30,7 @@ rmdir /s /q "%APPDATA%\Reynard" 2>nul
 
 :done
 echo.
-echo   Done. Last step: remove the Reynard add-on in Firefox (about:addons).
+echo   Done. Last step: remove the Reynard add-on in your browser (about:addons, chrome://extensions).
 echo.
 pause
 exit /b 0

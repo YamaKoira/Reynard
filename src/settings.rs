@@ -11,18 +11,41 @@ pub struct General {
     pub default_dir: String,
     pub default_args: String,
     pub output_template: String,
-    pub show_toasts: bool,
+    /// Put the video ID in file names, like "Title [abc123].mp4". A site rule can override this.
+    /// Only applies while `output_template` is the stock one; your own template is used as written.
+    pub include_id: bool,
+    /// If a file with the same name is already in the folder, save the new one as "Name (1).ext"
+    /// instead of letting yt-dlp skip it.
+    pub rename_existing: bool,
+    /// "Download as audio": mp3, m4a, opus, flac, or best (keep the original audio).
+    pub audio_format: String,
+    /// "Download as GIF": frames per second, width in pixels (0 = keep the size),
+    /// and whether to keep the video after the GIF is made.
+    pub gif_fps: u32,
+    pub gif_width: u32,
+    pub gif_keep_video: bool,
 }
+
+/// The stock file name template, with and without the video ID.
+pub const TEMPLATE_WITH_ID: &str = "%(title).150B [%(id)s].%(ext)s";
+pub const TEMPLATE_NO_ID: &str = "%(title).150B.%(ext)s";
+
+pub const AUDIO_FORMATS: [&str; 5] = ["mp3", "m4a", "opus", "flac", "best"];
 
 impl Default for General {
     fn default() -> Self {
         General {
-            yt_dlp: r"bin\yt-dlp.exe".into(),
+            yt_dlp: paths::YTDLP_SETTING.into(),
             ffmpeg_dir: "bin".into(),
             default_dir: paths::default_download_setting(),
             default_args: "--no-playlist".into(),
-            output_template: "%(title).150B [%(id)s].%(ext)s".into(),
-            show_toasts: true,
+            output_template: TEMPLATE_WITH_ID.into(),
+            include_id: true,
+            rename_existing: false,
+            audio_format: "mp3".into(),
+            gif_fps: 15,
+            gif_width: 480,
+            gif_keep_video: false,
         }
     }
 }
@@ -34,11 +57,13 @@ pub struct Site {
     pub dir: String,
     pub args: String,
     pub inherit_args: bool,
+    /// None = follow the general setting; Some(true/false) = this site decides.
+    pub include_id: Option<bool>,
 }
 
 impl Default for Site {
     fn default() -> Self {
-        Site { patterns: vec![], dir: String::new(), args: String::new(), inherit_args: true }
+        Site { patterns: vec![], dir: String::new(), args: String::new(), inherit_args: true, include_id: None }
     }
 }
 
@@ -54,6 +79,8 @@ pub struct Resolved {
     pub dir: String,
     pub args: Vec<String>,
     pub matched: Option<String>,
+    /// The yt-dlp output template to use for this link (-o).
+    pub template: String,
 }
 
 impl Settings {
@@ -78,10 +105,29 @@ impl Settings {
                 let dir = paths::expand_env(&dir);
                 let mut args = if site.inherit_args { split_args(&self.general.default_args) } else { vec![] };
                 args.extend(split_args(&site.args));
-                return Resolved { dir, args, matched: Some(p.clone()) };
+                let include_id = site.include_id.unwrap_or(self.general.include_id);
+                let template = template_for(&self.general, include_id);
+                return Resolved { dir, args, matched: Some(p.clone()), template };
             }
         }
-        Resolved { dir: paths::expand_env(&self.general.default_dir), args: split_args(&self.general.default_args), matched: None }
+        let include_id = self.general.include_id;
+        Resolved {
+            dir: paths::expand_env(&self.general.default_dir),
+            args: split_args(&self.general.default_args),
+            matched: None,
+            template: template_for(&self.general, include_id),
+        }
+    }
+}
+
+/// The template for one download. The stock template (or an empty one) follows the
+/// "include the video ID" choice; a template you wrote yourself is used exactly as written.
+pub fn template_for(g: &General, include_id: bool) -> String {
+    let t = g.output_template.trim();
+    if t.is_empty() || t == TEMPLATE_WITH_ID || t == TEMPLATE_NO_ID {
+        (if include_id { TEMPLATE_WITH_ID } else { TEMPLATE_NO_ID }).to_string()
+    } else {
+        g.output_template.clone()
     }
 }
 
@@ -96,6 +142,15 @@ fn check(settings: &Settings) -> Result<(), String> {
     let g = &settings.general;
     if g.default_dir.trim().is_empty() {
         return Err("The default download folder can't be empty.".into());
+    }
+    if !AUDIO_FORMATS.contains(&g.audio_format.as_str()) {
+        return Err(format!("The audio format must be one of: {}.", AUDIO_FORMATS.join(", ")));
+    }
+    if !(1..=60).contains(&g.gif_fps) {
+        return Err("GIF frames per second must be between 1 and 60.".into());
+    }
+    if g.gif_width > 4096 {
+        return Err("The GIF width can be at most 4096 pixels (0 keeps the video's size).".into());
     }
     for (name, v) in [
         ("yt-dlp path", &g.yt_dlp),
@@ -142,6 +197,17 @@ fn set_bool(t: &mut Table, key: &str, val: bool) {
     t[key] = Item::Value(v);
 }
 
+fn set_int(t: &mut Table, key: &str, val: i64) {
+    if t.get(key).and_then(Item::as_integer) == Some(val) {
+        return;
+    }
+    let mut v = Value::from(val);
+    if let Some(old) = t.get(key).and_then(Item::as_value) {
+        *v.decor_mut() = old.decor().clone();
+    }
+    t[key] = Item::Value(v);
+}
+
 /// Writes the value, or removes the key when the value is empty.
 fn set_or_remove(t: &mut Table, key: &str, val: &str) {
     if val.trim().is_empty() {
@@ -167,7 +233,29 @@ pub fn apply(current: &str, new: &Settings) -> Result<String, String> {
     set_str(general, "default_dir", &g.default_dir);
     set_str(general, "default_args", &g.default_args);
     set_str(general, "output_template", &g.output_template);
-    set_bool(general, "show_toasts", g.show_toasts);
+    // New keys are only written when they are already in the file or differ from the
+    // default, so saving never adds lines you didn't ask for.
+    let d = General::default();
+    if general.contains_key("include_id") || g.include_id != d.include_id {
+        set_bool(general, "include_id", g.include_id);
+    }
+    if general.contains_key("rename_existing") || g.rename_existing != d.rename_existing {
+        set_bool(general, "rename_existing", g.rename_existing);
+    }
+    // The "Download as" keys are only written when they are already in the file or
+    // differ from the default, so saving never adds lines you didn't ask for.
+    if general.contains_key("audio_format") || g.audio_format != d.audio_format {
+        set_str(general, "audio_format", &g.audio_format);
+    }
+    if general.contains_key("gif_fps") || g.gif_fps != d.gif_fps {
+        set_int(general, "gif_fps", g.gif_fps as i64);
+    }
+    if general.contains_key("gif_width") || g.gif_width != d.gif_width {
+        set_int(general, "gif_width", g.gif_width as i64);
+    }
+    if general.contains_key("gif_keep_video") || g.gif_keep_video != d.gif_keep_video {
+        set_bool(general, "gif_keep_video", g.gif_keep_video);
+    }
 
     if new.site.is_empty() {
         doc.remove("site");
@@ -200,6 +288,12 @@ pub fn apply(current: &str, new: &Settings) -> Result<String, String> {
             }
             set_or_remove(t, "dir", &site.dir);
             set_or_remove(t, "args", &site.args);
+            match site.include_id {
+                None => {
+                    t.remove("include_id"); // absent = follow the general setting
+                }
+                Some(b) => set_bool(t, "include_id", b),
+            }
             if site.inherit_args {
                 t.remove("inherit_args"); // true is the default
             } else if t.get("inherit_args").and_then(Item::as_bool) != Some(false) {
@@ -300,26 +394,41 @@ fn starter_file() -> String {
 
 [general]
 # Relative paths are relative to the Reynard folder.
-yt_dlp = 'bin\yt-dlp.exe'
+yt_dlp = '{ytdlp}'
 ffmpeg_dir = 'bin'
-# Folders can use Windows variables such as %USERPROFILE%, so no user name is stored here.
+{vars_note}
 default_dir = '{downloads}'
 default_args = "--no-playlist --recode-video mp4 --embed-thumbnail --embed-metadata"
 output_template = "%(title).150B [%(id)s].%(ext)s"
-show_toasts = true
+include_id = true           # false = no [video id] in file names (a site rule can override this)
+rename_existing = false     # true = save as "Name (1).ext" if the file already exists
+
+# "Download as" options (right-click > Reynard > Download as ...)
+audio_format = "mp3"        # mp3, m4a, opus, flac, or best (keep the original audio)
+gif_fps = 15                # frames per second of GIFs
+gif_width = 480             # GIF width in pixels; 0 keeps the video's own size
+gif_keep_video = false      # keep the downloaded video after making the GIF
 
 # Site rules: the first match wins. Patterns are matched against the full URL
 # (case-insensitive, * and ? wildcards). A rule's args are added after
 # default_args; set inherit_args = false to replace default_args instead.
+# A rule can also set include_id = true/false; without it the general setting is used.
 # You can also manage rules on the settings page (toolbar fox > Settings).
 #
 # Example: send YouTube links to their own folder (remove the # in front of each line)
 # [[site]]
 # patterns = ["*youtube.com*", "*youtu.be*"]
-# dir = 'C:\Users\you\Videos\YouTube'
+# dir = '{example_dir}'
 # args = "--cookies-from-browser firefox"
 "#,
-        downloads = paths::default_download_setting()
+        downloads = paths::default_download_setting(),
+        ytdlp = paths::YTDLP_SETTING,
+        vars_note = if cfg!(windows) {
+            "# Folders can use Windows variables such as %USERPROFILE%, so no user name is stored here."
+        } else {
+            "# Folders can use variables such as %HOME%, so no user name is stored here."
+        },
+        example_dir = if cfg!(windows) { r"C:\Users\you\Videos\YouTube" } else { "/home/you/Videos/YouTube" },
     )
 }
 
@@ -336,7 +445,6 @@ ffmpeg_dir = 'bin'
 default_dir = 'C:\Users\someone\Downloads'
 default_args = "--no-playlist --embed-metadata"
 output_template = "%(title).150B [%(id)s].%(ext)s"
-show_toasts = true
 
 # Site rules: the first match wins.
 [[site]]
@@ -407,11 +515,14 @@ args = "--foo"
         assert_eq!(apply(&original, &s).unwrap(), original);
 
         s.general.default_dir = r"D:\new place".into();
-        s.general.show_toasts = false;
+        s.general.audio_format = "opus".into();
+        s.general.gif_fps = 24;
+        s.general.gif_width = 0;
+        s.general.gif_keep_video = true;
         s.site[0].patterns = vec!["*twitter.com*".into(), "*x.com*".into(), "*nitter*".into()];
         s.site[0].inherit_args = false;
         s.site[1].dir = String::new(); // falls back to the default folder
-        s.site.push(Site { patterns: vec!["*vimeo*".into()], dir: r"H:\v".into(), args: "--embed-subs".into(), inherit_args: true });
+        s.site.push(Site { patterns: vec!["*vimeo*".into()], dir: r"D:\v".into(), args: "--embed-subs".into(), ..Site::default() });
         let out = apply(&original, &s).unwrap();
         assert!(out.contains("# Reynard settings."), "top comment lost");
         assert!(out.contains("# Site rules: the first match wins."), "section comment lost");
@@ -448,6 +559,15 @@ args = "--foo"
         s.site[0].patterns = vec!["  ".into()];
         assert!(check(&s).is_err());
         s.site[0].patterns = vec!["*a*".into()];
+        s.general.audio_format = "wav".into();
+        assert!(check(&s).is_err(), "unknown audio format");
+        s.general.audio_format = "mp3".into();
+        s.general.gif_fps = 0;
+        assert!(check(&s).is_err(), "fps 0");
+        s.general.gif_fps = 15;
+        s.general.gif_width = 5000;
+        assert!(check(&s).is_err(), "huge gif");
+        s.general.gif_width = 480;
         s.general.default_dir = " ".into();
         assert!(check(&s).is_err());
         s.general.default_dir = "x".into();
@@ -479,7 +599,6 @@ dir = '%REYNARD_TEST_HOME%\Videos\a'
         let text = starter_file();
         let s: Settings = toml::from_str(&text).unwrap();
         assert!(s.site.is_empty(), "the starter file ships with no personal site rules");
-        assert!(s.general.show_toasts);
         // the only drive/user paths allowed are the neutral example (C:\Users\you)
         // and the current user's own Downloads folder
         assert!(!text.to_lowercase().contains("h:\\"), "starter file contains a personal drive path");
@@ -492,5 +611,79 @@ dir = '%REYNARD_TEST_HOME%\Videos\a'
         assert!(text.contains("default_dir = '%"), "default folder should be a variable");
         // saving the starter file untouched must not alter it
         assert_eq!(apply(&text, &s).unwrap(), text);
+    }
+
+    #[test]
+    fn video_id_in_file_names_global_and_per_site() {
+        let s: Settings = toml::from_str(
+            r#"
+[general]
+default_dir = "D"
+include_id = false
+[[site]]
+patterns = ["*youtube*"]
+include_id = true
+[[site]]
+patterns = ["*reddit*"]
+"#,
+        )
+        .unwrap();
+        assert_eq!(s.resolve("https://youtube.com/x").template, TEMPLATE_WITH_ID, "the site says yes");
+        assert_eq!(s.resolve("https://reddit.com/x").template, TEMPLATE_NO_ID, "no opinion: follows the general setting");
+        assert_eq!(s.resolve("https://example.org").template, TEMPLATE_NO_ID);
+
+        // on by default; a site can switch it off
+        let d: Settings = toml::from_str("[general]\ndefault_dir = \"D\"\n[[site]]\npatterns = [\"*x.com*\"]\ninclude_id = false\n").unwrap();
+        assert_eq!(d.resolve("https://example.org").template, TEMPLATE_WITH_ID);
+        assert_eq!(d.resolve("https://x.com/a").template, TEMPLATE_NO_ID);
+        assert!(!d.general.rename_existing, "rename is off unless asked for");
+    }
+
+    #[test]
+    fn your_own_template_is_used_as_written() {
+        let own = "%(uploader)s - %(title)s.%(ext)s";
+        let g = General { output_template: own.into(), include_id: false, ..General::default() };
+        assert_eq!(template_for(&g, false), own);
+        assert_eq!(template_for(&g, true), own);
+        let blank = General { output_template: "  ".into(), ..General::default() };
+        assert_eq!(template_for(&blank, true), TEMPLATE_WITH_ID);
+        assert_eq!(template_for(&blank, false), TEMPLATE_NO_ID);
+    }
+
+    #[test]
+    fn new_keys_are_saved_quietly_and_per_site_value_can_be_cleared() {
+        let original = SAMPLE.to_string();
+        let mut s: Settings = toml::from_str(&original).unwrap();
+        assert_eq!(apply(&original, &s).unwrap(), original, "no lines added when nothing changed");
+
+        s.general.include_id = false;
+        s.general.rename_existing = true;
+        s.site[0].include_id = Some(true);
+        s.site[1].include_id = Some(false);
+        let out = apply(&original, &s).unwrap();
+        let back: Settings = toml::from_str(&out).unwrap();
+        assert!(same(&s, &back));
+        assert!(out.contains("include_id = false") && out.contains("rename_existing = true"));
+
+        // "follow the general setting" removes the key from the site again
+        s.site[0].include_id = None;
+        let out2 = apply(&out, &s).unwrap();
+        let back: Settings = toml::from_str(&out2).unwrap();
+        assert_eq!(back.site[0].include_id, None);
+        assert_eq!(back.site[1].include_id, Some(false));
+        // the add-on sends null for "follow general"; it must read back as None
+        let json = serde_json::json!({"patterns": ["*a*"], "include_id": null});
+        assert_eq!(serde_json::from_value::<Site>(json).unwrap().include_id, None);
+    }
+
+    #[test]
+    fn older_settings_files_and_add_ons_still_load() {
+        // no new keys at all
+        let s: Settings = toml::from_str("[general]\ndefault_dir = \"D\"\n").unwrap();
+        assert!(s.general.include_id && !s.general.rename_existing);
+        // what an old add-on sends: no include_id / rename_existing anywhere
+        let old = serde_json::json!({"general": {"default_dir": "D"}, "site": [{"patterns": ["*a*"]}]});
+        let s: Settings = serde_json::from_value(old).unwrap();
+        assert!(s.general.include_id && s.site[0].include_id.is_none());
     }
 }

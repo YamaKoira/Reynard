@@ -2,6 +2,7 @@
 //! now, start downloads as separate background processes. (Later this becomes
 //! a thin relay to the tray app.)
 
+use crate::modes::Mode;
 use crate::settings::{self, Settings};
 use crate::{jobs, paths, shell, tools};
 use serde_json::{json, Value};
@@ -38,14 +39,18 @@ fn handle(msg: &Value) -> Value {
         Some("ping") => json!({"ok": true, "version": env!("CARGO_PKG_VERSION")}),
         Some("download") => {
             let url = msg["url"].as_str().unwrap_or("");
-            match jobs::start(url) {
+            // "kind" is what the right-click menu asked for; missing = your settings as they are
+            let Some(mode) = Mode::parse(msg["kind"].as_str().unwrap_or("")) else {
+                return json!({"ok": false, "error": "unknown download kind"});
+            };
+            match jobs::start(url, mode) {
                 Err(e) => json!({"ok": false, "error": e}),
                 Ok(started) => match spawn_runner(started.job.id) {
                     Ok(()) => json!({
                         "ok": true,
                         "id": started.job.id,
                         "dir": started.job.dir,
-                        "toast": started.toast
+                        "kind": started.job.kind
                     }),
                     Err(e) => json!({"ok": false, "error": format!("could not start the download: {e}")}),
                 },
@@ -68,6 +73,7 @@ fn handle(msg: &Value) -> Value {
         Some("status") => json!({
             "ok": true,
             "version": env!("CARGO_PKG_VERSION"),
+            "build": if crate::DEV_BUILD { "dev" } else { "release" },
             "ytdlp": tools::ytdlp_version(),
             "settings_path": paths::settings_path().to_string_lossy(),
         }),
@@ -93,7 +99,10 @@ fn handle(msg: &Value) -> Value {
             }
             match serde_json::from_value::<Settings>(incoming.clone()) {
                 Err(e) => json!({"ok": false, "error": format!("bad settings: {e}")}),
-                Ok(new) => unit(settings::save(&new)),
+                Ok(mut new) => {
+                    keep_unsent_keys(incoming, &mut new);
+                    unit(settings::save(&new))
+                }
             }
         }
         Some("pick_folder") => match shell::pick_folder(&paths::expand_env(msg["start"].as_str().unwrap_or(""))) {
@@ -124,6 +133,12 @@ fn spawn_runner(id: u32) -> io::Result<()> {
             return Ok(());
         }
         cmd.creation_flags(DETACHED_PROCESS);
+    }
+    #[cfg(unix)]
+    {
+        // Own process group: signals aimed at Firefox's group don't reach the download.
+        use std::os::unix::process::CommandExt;
+        cmd.process_group(0);
     }
     cmd.spawn().map(|_| ())
 }
@@ -173,5 +188,26 @@ fn shell_action(msg: &Value, name: &str, action: fn(&Path) -> io::Result<()>) ->
                 json!({"ok": false, "error": e.to_string()})
             }
         },
+    }
+}
+
+/// A settings page from an older add-on doesn't send the newer keys, and "missing"
+/// would otherwise read as "back to the default". Keep what settings.toml already says.
+fn keep_unsent_keys(incoming: &Value, new: &mut Settings) {
+    let Ok(current) = Settings::load() else { return };
+    let general = &incoming["general"];
+    if general.get("include_id").is_none() {
+        new.general.include_id = current.general.include_id;
+    }
+    if general.get("rename_existing").is_none() {
+        new.general.rename_existing = current.general.rename_existing;
+    }
+    if current.site.len() == new.site.len() {
+        let sent = incoming["site"].as_array().cloned().unwrap_or_default();
+        for (i, site) in new.site.iter_mut().enumerate() {
+            if sent.get(i).map_or(false, |v| v.get("include_id").is_none()) {
+                site.include_id = current.site[i].include_id;
+            }
+        }
     }
 }

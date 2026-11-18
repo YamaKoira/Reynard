@@ -18,12 +18,52 @@ pub fn data_dir() -> PathBuf {
     exe_dir().join("data")
 }
 
+/// Portable mode: a file named portable.txt next to reynard.exe means "keep
+/// settings.toml here too", instead of in %APPDATA%\Reynard. The development copy
+/// uses this so it never touches the settings of an installed Reynard.
+pub fn portable_settings_in(dir: &Path) -> Option<PathBuf> {
+    if dir.join("portable.txt").exists() {
+        Some(dir.join("settings.toml"))
+    } else {
+        None
+    }
+}
+
+/// How the yt-dlp setting is written by default. The Windows value is pinned by a test.
+pub const YTDLP_WINDOWS: &str = r"bin\yt-dlp.exe";
+pub const YTDLP_LINUX: &str = "bin/yt-dlp";
+pub const YTDLP_SETTING: &str = if cfg!(windows) { YTDLP_WINDOWS } else { YTDLP_LINUX };
+
 pub fn settings_path() -> PathBuf {
+    if let Some(local) = portable_settings_in(&exe_dir()) {
+        return local;
+    }
+    settings_dir().join("settings.toml")
+}
+
+#[cfg(windows)]
+fn settings_dir() -> PathBuf {
     let base = env::var_os("APPDATA")
         .map(PathBuf::from)
         .or_else(|| env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))
         .unwrap_or_else(|| PathBuf::from("."));
-    base.join("Reynard").join("settings.toml")
+    base.join("Reynard")
+}
+
+#[cfg(not(windows))]
+fn settings_dir() -> PathBuf {
+    linux_config_dir(env::var_os("XDG_CONFIG_HOME"), env::var_os("HOME"))
+}
+
+/// ~/.config/reynard, or $XDG_CONFIG_HOME/reynard when that is set.
+#[allow(dead_code)]
+fn linux_config_dir(xdg: Option<std::ffi::OsString>, home: Option<std::ffi::OsString>) -> PathBuf {
+    let base = xdg
+        .filter(|v| !v.is_empty())
+        .map(PathBuf::from)
+        .or_else(|| home.map(|h| PathBuf::from(h).join(".config")))
+        .unwrap_or_else(|| PathBuf::from("."));
+    base.join("reynard")
 }
 
 /// How the default download folder is *written* in settings: a variable, so no
@@ -109,6 +149,17 @@ mod tests {
     use super::*;
 
     #[test]
+    fn portable_flag_moves_settings_next_to_the_exe() {
+        let dir = env::temp_dir().join(format!("reynard-portable-test-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        assert_eq!(portable_settings_in(&dir), None, "no flag file: normal location");
+        fs::write(dir.join("portable.txt"), "x").unwrap();
+        assert_eq!(portable_settings_in(&dir), Some(dir.join("settings.toml")));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn variables_expand_and_unknown_ones_stay() {
         env::set_var("REYNARD_TEST_DIR", "C:\\Users\\someone");
         assert_eq!(expand_env(r"%REYNARD_TEST_DIR%\Downloads"), r"C:\Users\someone\Downloads");
@@ -126,5 +177,20 @@ mod tests {
         assert!(resolve_dir("bin").is_absolute());
         // tools keep the PATH behaviour for bare names
         assert_eq!(resolve_tool("yt-dlp"), Path::new("yt-dlp"));
+    }
+
+    #[test]
+    fn linux_settings_live_in_the_xdg_config_folder() {
+        use std::ffi::OsString;
+        let os = |s: &str| Some(OsString::from(s));
+        assert_eq!(linux_config_dir(None, os("/home/u")), PathBuf::from("/home/u/.config/reynard"));
+        assert_eq!(linux_config_dir(os("/x/cfg"), os("/home/u")), PathBuf::from("/x/cfg/reynard"));
+        assert_eq!(linux_config_dir(os(""), os("/home/u")), PathBuf::from("/home/u/.config/reynard"), "empty XDG is ignored");
+    }
+
+    #[test]
+    fn the_windows_defaults_are_pinned() {
+        assert_eq!(YTDLP_WINDOWS, r"bin\yt-dlp.exe");
+        assert_eq!(YTDLP_LINUX, "bin/yt-dlp");
     }
 }
