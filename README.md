@@ -10,7 +10,7 @@ Right-click anything in your browser and have it downloaded by [yt-dlp](https://
 
 Windows and Arch Linux, with Firefox, or with Chrome, Edge, Brave or Chromium. (Other Linux distributions will probably work too, but only Arch is tested.)
 
-**Firefox add-on, already signed: [Click me for the extension](https://github.com/YamaKoira/Reynard/releases/download/Release/Reynard-0.8.1.xpi)**. It only adds the right-click menu and the fox; you still build and install Reynard itself (below), because the add-on can't download anything alone.
+**Firefox add-on, already signed: [Click me for the extension](https://github.com/YamaKoira/Reynard/releases/download/Release/Reynard-signed.xpi)**. It only adds the right-click menu and the fox; you still build and install Reynard itself (below), because the add-on can't download anything alone.
 
 ## Install
 
@@ -50,7 +50,7 @@ To update: `git pull`, `./make-release.sh`, then `./install.sh` again.
 
 Firefox release builds only keep add-ons that Mozilla has signed. The easy way is the signed one:
 
-- **Signed add-on (any Firefox, permanent):** [Click me for the extension](https://github.com/YamaKoira/Reynard/releases/download/Release/Reynard-0.8.1.xpi). Click it and confirm. It works on both Windows and Linux. If Firefox downloads the file instead of installing it, open `about:addons`, click the gear icon, choose *Install Add-on From File* and pick the downloaded `.xpi`.
+- **Signed add-on (any Firefox, permanent):** [Click me for the extension](https://github.com/YamaKoira/Reynard/releases/download/Release/Reynard-signed.xpi). Click it and confirm. It works on both Windows and Linux. If Firefox downloads the file instead of installing it, open `about:addons`, click the gear icon, choose *Install Add-on From File* and pick the downloaded `.xpi`.
 
 If you change the add-on's code, the signed one won't contain your changes. Then:
 
