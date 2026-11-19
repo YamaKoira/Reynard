@@ -43,7 +43,7 @@ fn handle(msg: &Value) -> Value {
             let Some(mode) = Mode::parse(msg["kind"].as_str().unwrap_or("")) else {
                 return json!({"ok": false, "error": "unknown download kind"});
             };
-            match jobs::start(url, mode) {
+            match jobs::start(url, mode, msg["items"].as_str().unwrap_or("")) {
                 Err(e) => json!({"ok": false, "error": e}),
                 Ok(started) => match spawn_runner(started.job.id) {
                     Ok(()) => json!({

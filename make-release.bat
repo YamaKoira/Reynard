@@ -2,13 +2,11 @@
 rem =====================================================================
 rem  Builds everything you upload to a release, into release-out\ :
 rem    reynard.exe                       the real build (works with the real add-on)
-rem    install.bat, install-local.bat,   for your users (install-local.bat needs no
-rem    uninstall.bat                     internet access to a release page: it uses the exe next to it)
+rem    install-local.bat, uninstall.bat  for your users (install-local.bat uses the exe next to it)
 rem    Reynard-extension-VERSION.zip     the add-on, to submit to addons.mozilla.org
 rem
 rem  Not to be confused with setup.bat, which makes the DEV copy in dist-dev.
-rem  Before running this, set REYNARD_URL and ADDON_URL at the top of
-rem  scripts\install.bat.
+rem  Before running this, set ADDON_URL at the top of scripts\install-local.bat.
 rem =====================================================================
 setlocal
 cd /d "%~dp0"
@@ -24,7 +22,6 @@ if exist release-out rmdir /s /q release-out
 mkdir release-out
 copy /y target\release\reynard.exe release-out\reynard.exe >nul
 if errorlevel 1 goto :fail
-copy /y scripts\install.bat release-out\install.bat >nul
 copy /y scripts\install-local.bat release-out\install-local.bat >nul
 copy /y scripts\uninstall.bat release-out\uninstall.bat >nul
 
@@ -63,8 +60,7 @@ echo.
 echo Ready in release-out\ :
 dir /b release-out
 echo.
-echo Upload reynard.exe, install.bat and uninstall.bat to your release (keep the name reynard.exe).
-echo Handing it over directly? Send reynard.exe, install-local.bat and uninstall.bat together.
+echo Upload reynard.exe, install-local.bat and uninstall.bat to your release (keep the name reynard.exe).
 echo Submit Reynard-extension-%VER%.zip to addons.mozilla.org.
 echo Chrome: Reynard-chrome-%VER%.zip is for the Chrome Web Store; extension-chrome\ loads unpacked.
 pause

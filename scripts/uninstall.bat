@@ -2,7 +2,7 @@
 setlocal EnableExtensions
 title Reynard uninstaller
 
-rem Removes what install.bat added: the Firefox registry key and the Reynard folder.
+rem Removes what install-local.bat added: the Firefox registry key and the Reynard folder.
 set "HOST_NAME=io.reynard.host"
 set "RF_DIR=%LOCALAPPDATA%\Reynard"
 

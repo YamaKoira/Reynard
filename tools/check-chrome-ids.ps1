@@ -6,7 +6,7 @@ foreach ($line in Get-Content -LiteralPath 'chrome/ids.txt') {
     if ($line -match '^([A-Z_]+)=(.*)$') { $ids[$Matches[1]] = $Matches[2].Trim() }
 }
 $bad = @()
-foreach ($f in 'scripts/install.sh', 'scripts/install.bat', 'scripts/install-local.bat') {
+foreach ($f in 'scripts/install.sh', 'scripts/install-local.bat') {
     $t = Get-Content -Raw -LiteralPath $f
     if (-not $t.Contains($ids['RELEASE_ID'])) { $bad += $f }
     elseif ($ids['STORE_ID'] -and -not $t.Contains($ids['STORE_ID'])) { $bad += $f }

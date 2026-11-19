@@ -37,7 +37,7 @@ if grep -q 'reynard-dev@' release-out/reynard; then devbuild; fi
 
 # the Chrome add-on IDs written into the installers must be the ones in chrome/ids.txt
 load_chrome_ids
-for f in scripts/install.sh scripts/install.bat scripts/install-local.bat; do
+for f in scripts/install.sh scripts/install-local.bat; do
     grep -q "$RELEASE_ID" "$f" || { echo "STOP: $f does not contain the release Chrome ID $RELEASE_ID (see chrome/ids.txt)" >&2; exit 1; }
     if [ -n "$STORE_ID" ]; then grep -q "$STORE_ID" "$f" || { echo "STOP: $f does not contain the store ID $STORE_ID (see chrome/ids.txt)" >&2; exit 1; }; fi
 done

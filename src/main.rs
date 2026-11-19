@@ -108,7 +108,7 @@ fn cmd_download(rest: &[String]) -> Result<(), String> {
         let value = rest.get(i + 1).ok_or("--as needs video, audio or gif")?;
         mode = Mode::parse(value).ok_or("--as must be video, audio or gif")?;
     }
-    let started = jobs::start(url, mode)?;
+    let started = jobs::start(url, mode, "")?;
     println!("Job #{} ({}) -> {}", started.job.id, started.job.kind, started.job.dir);
     jobs::run(started.job.id, true)?;
     let job = jobs::get(started.job.id).ok_or("job vanished")?;

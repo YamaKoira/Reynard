@@ -1,8 +1,8 @@
 # Reynard
 
-Right-click anything in Firefox and have it downloaded by [yt-dlp](https://github.com/yt-dlp/yt-dlp), into the folder and with the options you chose for that site. No terminal, no download manager, no copy-pasting links.
+Right-click anything in your browser and have it downloaded by [yt-dlp](https://github.com/yt-dlp/yt-dlp), into the folder and with the options you chose for that site. No terminal, no download manager, no copy-pasting links.
 
-- **One click.** Right-click a link, image, video or page, then choose *Download with Reynard*.
+- **One click.** Right-click a link, image, video or page, then choose *Reynard*, then *Download* (or *as audio / GIF / video*).
 - **Per-site rules.** Twitter goes to one folder, YouTube to another, each with its own options (convert to mp4, embed thumbnails, use your Firefox cookies, and so on).
 - **A fox that tells you what's happening.** The toolbar icon shows idle, downloading, done or failed. No pop-up notifications needed.
 - **Stays out of your way.** Nothing runs in the background while you're not downloading, and there is no tray icon.
@@ -10,21 +10,19 @@ Right-click anything in Firefox and have it downloaded by [yt-dlp](https://githu
 
 Windows and Arch Linux, with Firefox, or with Chrome, Edge, Brave or Chromium. (Other Linux distributions will probably work too, but only Arch is tested.)
 
-AI notice: yes.
-
 ## Install
 
 You need Windows 10 (version 1803 or later) or Windows 11, and Firefox.
 
-1. Download **`install.bat`** from the [latest release](https://github.com/YOUR-GITHUB-NAME/Reynard/releases/latest) and double-click it. It's a plain text script: it tells you exactly what it will do and waits for a key press before touching anything. It downloads Reynard, yt-dlp, ffmpeg and Deno into `%LOCALAPPDATA%\Reynard` and tells Firefox where to find Reynard. No admin rights are needed.
+1. Put **`reynard.exe`** and **`install-local.bat`** in the same folder and double-click `install-local.bat`. It's a plain text script: it tells you exactly what it will do and waits for a key press before touching anything. It copies Reynard from its own folder (and refuses an exe that isn't a release build), and puts yt-dlp, ffmpeg and Deno into `%LOCALAPPDATA%\Reynard` and tells Firefox where to find Reynard. No admin rights are needed.
 2. Add the **Reynard add-on** to Firefox. The installer offers to open the page for you.
 3. Pin the fox to the toolbar: puzzle-piece menu, then *Pin to Toolbar*.
 
 Windows may show a "protected your PC" warning for files downloaded from the internet. Choose *More info*, then *Run anyway*. Read the script first if you like; that's why it's a script.
 
-No release page to download from? Put `reynard.exe` in the same folder as **`install-local.bat`** and run that instead. It does exactly what `install.bat` does, but copies `reynard.exe` from its own folder (and refuses an exe that isn't a release build). If `yt-dlp.exe`, `ffmpeg.exe`, `ffprobe.exe` and `deno.exe` are in that folder too, it uses them instead of downloading.
+If `yt-dlp.exe`, `ffmpeg.exe`, `ffprobe.exe` and `deno.exe` are in that folder too, it uses them instead of downloading them.
 
-Run `install.bat` again at any time to update Reynard. yt-dlp and ffmpeg are kept; yt-dlp updates from inside the add-on (see below).
+Run `install-local.bat` again at any time to update Reynard. yt-dlp and ffmpeg are kept; yt-dlp updates from inside the add-on (see below).
 
 ## Install on Arch Linux
 
@@ -42,14 +40,14 @@ Your settings are in `~/.config/reynard/settings.toml`. The *Browse...* button u
 
 ## Install in Chrome, Edge, Brave or Chromium
 
-It is the same Reynard program with a Chrome version of the add-on. The installers (`install.bat`, `install-local.bat` and `install.sh`) already tell Chrome, Edge, Brave and Chromium where Reynard is (registry keys on Windows, one `.json` file per browser on Linux, for the browsers that exist), so only the add-on is left:
+It is the same Reynard program with a Chrome version of the add-on. The installers (`install-local.bat` and `install.sh`) already tell Chrome, Edge, Brave and Chromium where Reynard is (registry keys on Windows, one `.json` file per browser on Linux, for the browsers that exist), so only the add-on is left:
 
 1. Open `chrome://extensions` (or `edge://extensions`) and switch on **Developer mode**.
 2. Choose **Load unpacked** and pick the **`extension-chrome`** folder (from `release-out`, or `dist-dev` for the dev copy).
 
 Its ID is fixed by a key in its manifest, which is what lets the installer's registration match it. Chrome keeps reminding you that an unpacked add-on is in developer mode; publishing it in the Chrome Web Store removes that. Differences from Firefox: Chrome puts the background to sleep when nothing is happening, so the toolbar fox can take up to about 30 seconds to notice a download that was started elsewhere; during your own downloads it updates every 2 seconds as usual.
 
-**For maintainers.** The Chrome-only files live in `chrome/`: the Manifest V3 manifest, the service worker, and `ids.txt` with the add-on IDs. Everything else is shared with the Firefox add-on. `setup` and `make-release` build the Chrome add-on from those sources (`tools/make-chrome-extension.sh` or `.ps1`): `dist-dev\extension-chrome` ("Reynard (dev)", its own ID), and in `release-out` the unpacked `extension-chrome` plus `Reynard-chrome-VERSION.zip` for the Chrome Web Store (no key; the store assigns its own ID). Once the store gives you that ID, put it in `STORE_ID` in `chrome/ids.txt` and in the `CHROME_STORE_ID` line of `install.sh`, `install.bat` and `install-local.bat`; `make-release` refuses to continue if they disagree. Browsers other than Chrome, Edge, Brave, Chromium (and Vivaldi on Linux) are not registered.
+**For maintainers.** The Chrome-only files live in `chrome/`: the Manifest V3 manifest, the service worker, and `ids.txt` with the add-on IDs. Everything else is shared with the Firefox add-on. `setup` and `make-release` build the Chrome add-on from those sources (`tools/make-chrome-extension.sh` or `.ps1`): `dist-dev\extension-chrome` ("Reynard (dev)", its own ID), and in `release-out` the unpacked `extension-chrome` plus `Reynard-chrome-VERSION.zip` for the Chrome Web Store (no key; the store assigns its own ID). Once the store gives you that ID, put it in `STORE_ID` in `chrome/ids.txt` and in the `CHROME_STORE_ID` line of `install.sh` and `install-local.bat`; `make-release` refuses to continue if they disagree. Browsers other than Chrome, Edge, Brave, Chromium (and Vivaldi on Linux) are not registered.
 
 ## Using it
 
@@ -65,6 +63,8 @@ Right-click a link, an image, a video, audio, or the page itself, then choose **
 Every entry still follows your site rules for the folder and flags. If a format you asked for (say a resolution limit) isn't available, Reynard retries once and lets yt-dlp pick the best it can find; conversions such as mp3 or GIF still happen afterwards. (Why a submenu? Firefox groups all of an add-on's context-menu items into one submenu named after the add-on, so a separate "quick" entry beside it isn't possible. Download comes first in it.)
 
 Reynard picks the address in this order: the link, then the media source, then the page. Addresses that yt-dlp can't use (`blob:` video elements, for example) are skipped, so on YouTube it falls back to the page address. A playlist is not downloaded unless you turn that off (the default flag `--no-playlist`).
+
+**On x.com / twitter.com** videos are `blob:` elements too, so a small content script (`extension/x-post.js`) remembers which post you right-clicked in. When the normal pick would be the page address, Reynard uses that post's own address (`/user/status/ID`) instead, so it works in threads, quote posts and on pages like `/i/history`. It only reads the page, and it is the reason the add-on asks for access to those two sites. It also works out which videos are meant: yt-dlp lists a post's own videos first and the quoted post's after them, so the add-on counts the videos on the page and tells Reynard to download only those (`--playlist-items`); with *single video* on, that is the first one. Right-clicking the quoted post's video gets the quoted one. Every right-click prints one `[Reynard] right-click:` line to the page console (F12) that shows what it found. After installing or reloading the add-on, reload open X tabs, or the script isn't there yet. If it can't tell which post you meant (X changes its page now and then), you get today's behaviour: the page address. Right-clicking a link, or a GIF, is unchanged.
 
 ### The toolbar fox
 
@@ -165,7 +165,7 @@ Because of that:
 - **The add-on only ever sends a link.** The flags always come from your settings file, so a page can't inject options.
 - Open / Show-in-folder work on **job numbers** from Reynard's own history, never on paths supplied by the add-on.
 - Downloads run as **separate background processes**, so they carry on if you close Firefox.
-- There is **no telemetry**, and the add-on declares that it collects no data. The network traffic is yt-dlp talking to the sites you download from, the downloads done by `install.bat`, and the popup's *Status* tab asking `api.github.com` (at most every 6 hours) what the newest yt-dlp version is.
+- There is **no telemetry**, and the add-on declares that it collects no data. The network traffic is yt-dlp talking to the sites you download from, the downloads done by `install-local.bat`, and the popup's *Status* tab asking `api.github.com` (at most every 6 hours) what the newest yt-dlp version is.
 
 What lives where:
 
@@ -181,11 +181,11 @@ HKCU\Software\Mozilla\NativeMessagingHosts\io.reynard.host     (one registry key
 
 ## Troubleshooting
 
-- **Red fox, "can't reach reynard.exe"**: run `install.bat` again, then restart Firefox. Check that `%LOCALAPPDATA%\Reynard\io.reynard.host.json` exists.
+- **Red fox, "can't reach reynard.exe"**: run `install-local.bat` again, then restart Firefox. Check that `%LOCALAPPDATA%\Reynard\io.reynard.host.json` exists.
 - **Right-click does nothing**: press Ctrl+Shift+J in Firefox and look for lines starting with `[Reynard]`.
 - **"ffmpeg not found"**: check that `ffmpeg.exe` and `ffprobe.exe` are in the `bin` folder, and that `ffmpeg_dir` in your settings points there.
 - **Open or Folder does nothing**: look at `data\reynard.log` for lines such as `open #3: ...`.
-- **YouTube: "Requested format is not available" or "Only images are available"**: yt-dlp needs a JavaScript runtime to see YouTube's formats, and that is what **Deno** (`bin\deno.exe`) is for. Run `install.bat` again to add it, then update yt-dlp (popup, *Status*, *Update yt-dlp*). Reynard tells yt-dlp where Deno is.
+- **YouTube: "Requested format is not available" or "Only images are available"**: yt-dlp needs a JavaScript runtime to see YouTube's formats, and that is what **Deno** (`bin\deno.exe`) is for. Run `install-local.bat` again to add it, then update yt-dlp (popup, *Status*, *Update yt-dlp*). Reynard tells yt-dlp where Deno is.
 - **YouTube: "The page needs to be reloaded"**: update yt-dlp first; this has been fixed upstream more than once. If it persists, try the *Cookies from browser* option off for YouTube.
 - **Reddit: "Your IP address is unable to access the Reddit API"**: Reddit is refusing your internet address, which Reynard can't change. Another network (or a VPN off) sometimes helps, and so can *Cookies from browser* for Reddit while logged in there.
 - **"Making the GIF failed"**: GIFs need ffmpeg. Check that `ffmpeg.exe` is in the `bin` folder. The video itself is kept in your download folder when this happens.
@@ -218,9 +218,10 @@ To test a build:
 
 ```
 src\            reynard.exe: host mode, command line, jobs, settings
-extension\      the Firefox add-on (background, popup, options page)
-scripts\        install.bat, install-local.bat and uninstall.bat for end users
-tools\          fetch.ps1 (downloads yt-dlp and ffmpeg), make-dev-extension.ps1
+extension\      the add-on (background, popup, options page, x-post.js)
+scripts\        install-local.bat and uninstall.bat for end users
+tools\          fetch.ps1 (downloads yt-dlp and ffmpeg), make-dev-extension.*, make-chrome-extension.*
+chrome\         the Chrome (Manifest V3) manifest, service worker and add-on IDs
 setup.bat       build and register the development copy (dist-dev\)
 ```
 
@@ -239,11 +240,11 @@ The platform differences live in a few `cfg` blocks in `src/`: Windows values ar
 
 ## Releasing (for maintainers)
 
-1. At the top of `scripts\install.bat`, set `REYNARD_URL` and `ADDON_URL`.
-2. Run `make-release.bat`. It builds the real `reynard.exe` (not the dev copy) and collects everything into `release-out\`: `reynard.exe`, `install.bat`, `uninstall.bat`, `Reynard-extension-<version>.zip` and a checksum. It refuses to continue unless `reynard.exe version` says it is a release build.
-3. Attach `reynard.exe`, `install.bat`, `install-local.bat` and `uninstall.bat` to a release, keeping the name `reynard.exe` exactly, so the "latest" download link keeps working.
+1. At the top of `scripts\install-local.bat`, set `ADDON_URL` (once you have a signed add-on link).
+2. Run `make-release.bat`. It builds the real `reynard.exe` (not the dev copy) and collects everything into `release-out\`: `reynard.exe`, `install-local.bat`, `uninstall.bat`, `Reynard-extension-<version>.zip` and a checksum. It refuses to continue unless `reynard.exe version` says it is a release build.
+3. Hand over or attach `reynard.exe`, `install-local.bat` and `uninstall.bat` together, keeping the name `reynard.exe` exactly, so the "latest" download link keeps working.
 4. Submit the extension zip on [addons.mozilla.org](https://addons.mozilla.org/developers/) (an *unlisted* submission is enough for self-distribution) and put the signed add-on's link in `ADDON_URL`. Release Firefox only keeps signed add-ons.
-5. The add-on ID must be identical in three places: `gecko.id` in `extension\manifest.json`, `EXTENSION_ID` in `src\main.rs`, and `EXT_ID` in `scripts\install.bat`. It's `reynard@reynard-yamakoira` today. Changing it after release breaks existing installs. (The dev copy has its own ID, set in `setup.bat`.)
+5. The add-on ID must be identical in three places: `gecko.id` in `extension\manifest.json`, `EXTENSION_ID` in `src\main.rs`, and `EXT_ID` in `scripts\install-local.bat`. It's `reynard@reynard-yamakoira` today. Changing it after release breaks existing installs. (The dev copy has its own ID, set in `setup.bat`.)
 
 Which build is which:
 

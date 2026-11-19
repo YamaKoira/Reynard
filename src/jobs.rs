@@ -26,6 +26,8 @@ pub struct Job {
     pub mode: String,
     /// What it is, for the popup: video | audio | gif ("" in old history = video)
     pub kind: String,
+    /// Which videos of an X post to take ("1-2", "3"), sent by the add-on. "" = no choice.
+    pub items: String,
     /// queued | running | done | error | cancelled
     pub status: String,
     pub progress: String,
@@ -111,7 +113,7 @@ pub fn get(id: u32) -> Option<Job> {
     read_history().jobs.into_iter().find(|j| j.id == id)
 }
 
-fn create(url: &str, site: &str, dir: &str, mode: Mode, kind: &str) -> Job {
+fn create(url: &str, site: &str, dir: &str, mode: Mode, kind: &str, items: &str) -> Job {
     with_history(|h| {
         h.next_id = h.next_id.max(1);
         let job = Job {
@@ -121,6 +123,7 @@ fn create(url: &str, site: &str, dir: &str, mode: Mode, kind: &str) -> Job {
             dir: dir.into(),
             mode: mode.as_str().into(),
             kind: kind.into(),
+            items: items.into(),
             status: "queued".into(),
             ..Job::default()
         };
@@ -164,7 +167,7 @@ pub fn is_http_url(u: &str) -> bool {
 
 /// Matches the URL against the site rules and records a queued job.
 /// The caller then runs it (CLI) or hands it to a background runner (Firefox).
-pub fn start(url: &str, mode: Mode) -> Result<Started, String> {
+pub fn start(url: &str, mode: Mode, items: &str) -> Result<Started, String> {
     let url = url.trim();
     if !is_http_url(url) {
         return Err("not an http(s) URL".into());
@@ -172,8 +175,35 @@ pub fn start(url: &str, mode: Mode) -> Result<Started, String> {
     let settings = Settings::load().map_err(|e| format!("settings.toml: {e}"))?;
     let resolved = settings.resolve(url);
     let kind = modes::kind_label(mode, &resolved.args);
-    let job = create(url, resolved.matched.as_deref().unwrap_or(""), &resolved.dir, mode, kind);
+    let job = create(url, resolved.matched.as_deref().unwrap_or(""), &resolved.dir, mode, kind, &clean_items(items));
     Ok(Started { job })
+}
+
+/// A playlist range the add-on may send: "2" or "1-3" and nothing else.
+pub fn clean_items(items: &str) -> String {
+    let t = items.trim();
+    let num = |s: &str| !s.is_empty() && s.len() <= 3 && s.bytes().all(|b| b.is_ascii_digit()) && s != "0" && !s.starts_with('0');
+    let ok = match t.split_once('-') {
+        Some((a, b)) => num(a) && num(b) && a.parse::<u32>().unwrap_or(0) <= b.parse::<u32>().unwrap_or(0),
+        None => num(t),
+    };
+    if ok { t.to_string() } else { String::new() }
+}
+
+/// X lists a post's own videos first and then the quoted post's, as one playlist. When the
+/// add-on says which of them were meant, ask yt-dlp for exactly those. "Single video" in your
+/// flags (--no-playlist) still means one video: the first of the range.
+pub fn apply_items(args: Vec<String>, items: &str) -> Vec<String> {
+    let items = clean_items(items);
+    if items.is_empty() {
+        return args;
+    }
+    let single = args.iter().any(|a| a == "--no-playlist");
+    let mut out: Vec<String> = args.into_iter().filter(|a| a != "--no-playlist" && a != "--yes-playlist").collect();
+    let pick = if single { items.split('-').next().unwrap_or(&items).to_string() } else { items };
+    out.push("--playlist-items".into());
+    out.push(pick);
+    out
 }
 
 /// Kill = stop yt-dlp *and* everything it started (ffmpeg, the PyInstaller child).
@@ -273,7 +303,7 @@ pub fn run(id: u32, verbose: bool) -> Result<(), String> {
     };
 
     // YouTube needs a JavaScript runtime to list any formats. If Deno sits next to
-    // yt-dlp (install.bat puts it there), tell yt-dlp exactly where it is.
+    // yt-dlp (install-local.bat puts it there), tell yt-dlp exactly where it is.
     let deno = find_deno(g, &yt_dlp);
     let ffmpeg_dir = paths::resolve_dir(&g.ffmpeg_dir);
     if !ffmpeg_dir.is_dir() {
@@ -295,6 +325,10 @@ pub fn run(id: u32, verbose: bool) -> Result<(), String> {
                 "--progress",
                 "--progress-template",
                 "download:RFPROG|%(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s",
+                // Tells us when ffmpeg (or another post-processor) starts, so the job can
+                // say "Converting..." instead of keeping the last download percentage.
+                "--progress-template",
+                "postprocess:RFPOST|%(progress.postprocessor)s|%(progress.status)s",
                 "--print-to-file",
                 "after_move:filepath",
             ])
@@ -326,7 +360,7 @@ pub fn run(id: u32, verbose: bool) -> Result<(), String> {
         cmd
     };
 
-    let base_args = modes::args_for(mode, &resolved.args, g);
+    let base_args = apply_items(modes::args_for(mode, &resolved.args, g), &job.items);
     let mut attempt = execute(id, build(&base_args), &yt_dlp, &path_file, verbose)?;
 
     // The format you asked for isn't there (say, a resolution limit nothing fits):
@@ -442,6 +476,25 @@ struct Attempt {
     already: bool,
 }
 
+/// What one yt-dlp output line means for the job's progress text. The bool says the text
+/// should be shown at once instead of waiting for the once-a-second update.
+fn progress_from_line(line: &str) -> Option<(String, bool)> {
+    if let Some(rest) = line.strip_prefix("RFPROG|") {
+        let f: Vec<&str> = rest.split('|').map(str::trim).collect();
+        let text = format!("{} {} ETA {}", f.first().unwrap_or(&""), f.get(1).unwrap_or(&""), f.get(2).unwrap_or(&""));
+        return Some((text, false));
+    }
+    if let Some(rest) = line.strip_prefix("RFPOST|") {
+        let f: Vec<&str> = rest.split('|').map(str::trim).collect();
+        // Moving the finished file into place is instant; everything else (ffmpeg merging,
+        // audio extraction, remuxing, embedding) is "converting" as far as anyone cares.
+        if f.get(1) == Some(&"started") && f.first() != Some(&"MoveFiles") {
+            return Some(("Converting...".to_string(), true));
+        }
+    }
+    None
+}
+
 /// Runs one yt-dlp process to the end, keeping the job's progress up to date.
 fn execute(id: u32, mut cmd: Command, tool: &Path, path_file: &Path, verbose: bool) -> Result<Attempt, String> {
     let mut child = cmd
@@ -485,17 +538,18 @@ fn execute(id: u32, mut cmd: Command, tool: &Path, path_file: &Path, verbose: bo
         if line.contains("has already been downloaded") {
             already = true;
         }
-        if let Some(rest) = line.strip_prefix("RFPROG|") {
-            let f: Vec<&str> = rest.split('|').map(str::trim).collect();
-            let progress = format!("{} {} ETA {}", f.first().unwrap_or(&""), f.get(1).unwrap_or(&""), f.get(2).unwrap_or(&""));
-            if verbose {
-                print!("\r{progress:<60}");
-                let _ = std::io::stdout().flush();
+        match progress_from_line(line) {
+            Some((progress, urgent)) => {
+                if verbose {
+                    print!("\r{progress:<60}");
+                    let _ = std::io::stdout().flush();
+                }
+                if urgent || last_write.elapsed() >= Duration::from_secs(1) {
+                    last_write = Instant::now();
+                    update(id, |j| j.progress = progress);
+                }
             }
-            if last_write.elapsed() >= Duration::from_secs(1) {
-                last_write = Instant::now();
-                update(id, |j| j.progress = progress);
-            }
+            None => {}
         }
     });
     if verbose {
@@ -535,12 +589,12 @@ fn wants_format_fallback(err_lines: &[String]) -> bool {
 
 // Where Deno comes from differs: the Windows installer adds it, on Arch it is a package.
 const HINT_ALSO_NO_RUNTIME: &str = if cfg!(windows) {
-    "yt-dlp also has no JavaScript runtime: run install.bat again to add Deno."
+    "yt-dlp also has no JavaScript runtime: run install-local.bat again to add Deno."
 } else {
     "yt-dlp also has no JavaScript runtime: install Deno with sudo pacman -S deno."
 };
 const HINT_NEEDS_RUNTIME: &str = if cfg!(windows) {
-    "YouTube needs a JavaScript runtime (Deno) and yt-dlp could not find one. Run install.bat again to add it, or put deno.exe in the bin folder. Updating yt-dlp helps too."
+    "YouTube needs a JavaScript runtime (Deno) and yt-dlp could not find one. Run install-local.bat again to add it, or put deno.exe in the bin folder. Updating yt-dlp helps too."
 } else {
     "YouTube needs a JavaScript runtime (Deno) and yt-dlp could not find one. Install it with sudo pacman -S deno. Updating yt-dlp helps too."
 };
@@ -835,6 +889,20 @@ fn make_gif(id: u32, video: &Path, target_dir: &Path, g: &General) -> Result<(Pa
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn items_ranges_are_checked_and_applied() {
+        use super::{apply_items, clean_items};
+        let v = |s: &str| s.split_whitespace().map(String::from).collect::<Vec<_>>();
+        assert_eq!(clean_items(" 1-2 "), "1-2");
+        for bad in ["", "0", "2-1", "a", "1,2", "1-", "-1", "1234", "01", "1;rm"] {
+            assert_eq!(clean_items(bad), "", "{bad}");
+        }
+        assert_eq!(apply_items(v("--embed-metadata"), ""), v("--embed-metadata"));
+        assert_eq!(apply_items(v("--embed-metadata"), "2-3"), v("--embed-metadata --playlist-items 2-3"));
+        assert_eq!(apply_items(v("--no-playlist -x"), "2-3"), v("-x --playlist-items 2"));
+        assert_eq!(apply_items(v("--no-playlist"), "nonsense"), v("--no-playlist"));
+    }
+
     use super::*;
 
     fn lines(l: &[&str]) -> Vec<String> {
@@ -854,7 +922,7 @@ mod tests {
     fn missing_javascript_runtime_is_explained() {
         let l = no_runtime();
         let msg = explain_error(&l, l[2].clone());
-        assert!(msg.contains("Deno") && msg.contains(if cfg!(windows) { "install.bat" } else { "pacman -S deno" }), "{msg}");
+        assert!(msg.contains("Deno") && msg.contains(if cfg!(windows) { "install-local.bat" } else { "pacman -S deno" }), "{msg}");
         assert!(msg.contains("yt-dlp said: [youtube] zWH_9VRWn8Y: Requested format is not available"), "{msg}");
         assert!(!wants_format_fallback(&l), "no point retrying when no formats exist at all");
     }
@@ -1080,7 +1148,17 @@ mod tests {
 
     #[test]
     fn deno_hints_follow_the_platform() {
-        assert_eq!(HINT_ALSO_NO_RUNTIME.contains("install.bat"), cfg!(windows));
+        assert_eq!(HINT_ALSO_NO_RUNTIME.contains("install-local.bat"), cfg!(windows));
         assert_eq!(HINT_NEEDS_RUNTIME.contains("pacman"), !cfg!(windows));
+    }
+
+    #[test]
+    fn progress_lines_become_text() {
+        assert_eq!(progress_from_line("RFPROG| 12.3%|1.2MiB/s|00:05"), Some(("12.3% 1.2MiB/s ETA 00:05".to_string(), false)));
+        assert_eq!(progress_from_line("RFPOST|Merger|started"), Some(("Converting...".to_string(), true)));
+        assert_eq!(progress_from_line("RFPOST|FFmpegExtractAudio|started"), Some(("Converting...".to_string(), true)));
+        assert_eq!(progress_from_line("RFPOST|Merger|finished"), None);
+        assert_eq!(progress_from_line("RFPOST|MoveFiles|started"), None);
+        assert_eq!(progress_from_line("[download] Destination: x.mp4"), None);
     }
 }

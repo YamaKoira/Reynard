@@ -4,7 +4,7 @@ rem  Development build of Reynard.
 rem
 rem  Builds into dist-dev\ and registers it as a SEPARATE "dev" Reynard: its own
 rem  Firefox host name, its own add-on ID, its own settings and history. An
-rem  installed Reynard (install.bat) keeps working untouched next to it.
+rem  installed Reynard (install-local.bat) keeps working untouched next to it.
 rem =====================================================================
 setlocal
 cd /d "%~dp0"

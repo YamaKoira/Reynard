@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Reynard",
-  "version": "0.7.3",
+  "version": "0.8.1",
   "description": "Right-click anything and download it with Reynard.",
   "icons": {
     "96": "icon.png"
@@ -20,6 +20,13 @@
     ],
     "persistent": true
   },
+  "content_scripts": [
+    {
+      "matches": ["https://x.com/*", "https://twitter.com/*"],
+      "js": ["x-post.js"],
+      "run_at": "document_start"
+    }
+  ],
   "browser_specific_settings": {
     "gecko": {
       "id": "reynard@reynard-yamakoira",

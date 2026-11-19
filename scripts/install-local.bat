@@ -5,7 +5,7 @@ title Reynard installer (local)
 rem =====================================================================
 rem  Reynard installer for Windows, LOCAL version. A plain script: read it first.
 rem
-rem  Same as install.bat, except reynard.exe is NOT downloaded: it is taken from
+rem  reynard.exe is NOT downloaded: it is taken from
 rem  the folder this script is in. If yt-dlp.exe, ffmpeg.exe, ffprobe.exe or deno.exe
 rem  are in that folder too, they are used instead of being downloaded.
 rem
