@@ -18,7 +18,7 @@ You need Windows 10 (version 1803 or later) or Windows 11, and Firefox.
 2. Add the **Reynard add-on** to Firefox. The installer offers to open the page for you.
 3. Pin the fox to the toolbar: puzzle-piece menu, then *Pin to Toolbar*.
 
-Windows may show a "protected your PC" warning for files downloaded from the internet. Choose *More info*, then *Run anyway*. Read the script first if you like; that's why it's a script.
+Windows may show a "protected your PC" warning for files downloaded from the internet. Choose *More info*, then *Run anyway*. Read the script first if you like; that's why it's a script. Windows Security (Defender) may also flag `reynard.exe` as a trojan (for example `Trojan:Win32/Bearfoos.A!ml`). That `!ml` means a machine-learning guess, and new unsigned programs that start other programs (here yt-dlp and ffmpeg) get it often. If it happens: *Windows Security, Virus & threat protection, Protection history*, restore the file and choose *Allow on device*. You can also report it as a false positive at <https://www.microsoft.com/wdsi/filesubmission>. The source is all in this repository, so you can build it yourself instead.
 
 If `yt-dlp.exe`, `ffmpeg.exe`, `ffprobe.exe` and `deno.exe` are in that folder too, it uses them instead of downloading them.
 
@@ -43,11 +43,9 @@ Your settings are in `~/.config/reynard/settings.toml`. The *Browse...* button u
 It is the same Reynard program with a Chrome version of the add-on. The installers (`install-local.bat` and `install.sh`) already tell Chrome, Edge, Brave and Chromium where Reynard is (registry keys on Windows, one `.json` file per browser on Linux, for the browsers that exist), so only the add-on is left:
 
 1. Open `chrome://extensions` (or `edge://extensions`) and switch on **Developer mode**.
-2. Choose **Load unpacked** and pick the **`extension-chrome`** folder (from `release-out`, or `dist-dev` for the dev copy).
+2. Choose **Load unpacked** and pick the **`extension-chrome`** folder (from `release-out`).
 
 Its ID is fixed by a key in its manifest, which is what lets the installer's registration match it. Chrome keeps reminding you that an unpacked add-on is in developer mode; publishing it in the Chrome Web Store removes that. Differences from Firefox: Chrome puts the background to sleep when nothing is happening, so the toolbar fox can take up to about 30 seconds to notice a download that was started elsewhere; during your own downloads it updates every 2 seconds as usual.
-
-**For maintainers.** The Chrome-only files live in `chrome/`: the Manifest V3 manifest, the service worker, and `ids.txt` with the add-on IDs. Everything else is shared with the Firefox add-on. `setup` and `make-release` build the Chrome add-on from those sources (`tools/make-chrome-extension.sh` or `.ps1`): `dist-dev\extension-chrome` ("Reynard (dev)", its own ID), and in `release-out` the unpacked `extension-chrome` plus `Reynard-chrome-VERSION.zip` for the Chrome Web Store (no key; the store assigns its own ID). Once the store gives you that ID, put it in `STORE_ID` in `chrome/ids.txt` and in the `CHROME_STORE_ID` line of `install.sh` and `install-local.bat`; `make-release` refuses to continue if they disagree. Browsers other than Chrome, Edge, Brave, Chromium (and Vivaldi on Linux) are not registered.
 
 ## Using it
 
@@ -237,24 +235,6 @@ sudo pacman -S --needed rust curl ffmpeg deno
 `./make-release.sh` builds the real thing into `release-out/`: `reynard`, `install.sh`, `uninstall.sh`, the add-on zip and `SHA256SUMS.txt`. Hand over `reynard`, `install.sh` and `uninstall.sh` together; `install.sh` uses the `reynard` next to it (or `REYNARD_URL` at the top of the script, if you host it). It refuses to continue if the binary turns out to be a dev build. The add-on is the same on both systems, so one signed add-on serves both.
 
 The platform differences live in a few `cfg` blocks in `src/`: Windows values are pinned by tests, Cancel stops yt-dlp's whole process group on Linux (`taskkill /T` on Windows), and the folder dialog is `zenity`/`kdialog` instead of PowerShell. `.gitattributes` keeps `.sh` files on Unix line endings.
-
-## Releasing (for maintainers)
-
-1. At the top of `scripts\install-local.bat`, set `ADDON_URL` (once you have a signed add-on link).
-2. Run `make-release.bat`. It builds the real `reynard.exe` (not the dev copy) and collects everything into `release-out\`: `reynard.exe`, `install-local.bat`, `uninstall.bat`, `Reynard-extension-<version>.zip` and a checksum. It refuses to continue unless `reynard.exe version` says it is a release build.
-3. Hand over or attach `reynard.exe`, `install-local.bat` and `uninstall.bat` together, keeping the name `reynard.exe` exactly, so the "latest" download link keeps working.
-4. Submit the extension zip on [addons.mozilla.org](https://addons.mozilla.org/developers/) (an *unlisted* submission is enough for self-distribution) and put the signed add-on's link in `ADDON_URL`. Release Firefox only keeps signed add-ons.
-5. The add-on ID must be identical in three places: `gecko.id` in `extension\manifest.json`, `EXTENSION_ID` in `src\main.rs`, and `EXT_ID` in `scripts\install-local.bat`. It's `reynard@reynard-yamakoira` today. Changing it after release breaks existing installs. (The dev copy has its own ID, set in `setup.bat`.)
-
-Which build is which:
-
-| Folder | What it is | Release it? |
-| --- | --- | --- |
-| `release-out\` | made by `make-release.bat` | **Yes, this is the release** |
-| `target\release\` | the real build (same exe as in `release-out\`) | Yes |
-| `dist-dev\`, `target-dev\` | the dev copy made by `setup.bat`, built to answer only to the dev add-on | **Never** |
-| `extension\` | the add-on source (what gets zipped for the release) | Yes |
-| `dist-dev\extension\` | the dev add-on, with the dev ID | Never |
 
 ## Credits and responsibility
 
