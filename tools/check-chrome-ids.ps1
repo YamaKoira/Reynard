@@ -9,7 +9,6 @@ $bad = @()
 foreach ($f in 'scripts/install.sh', 'scripts/install-local.bat') {
     $t = Get-Content -Raw -LiteralPath $f
     if (-not $t.Contains($ids['RELEASE_ID'])) { $bad += $f }
-    elseif ($ids['STORE_ID'] -and -not $t.Contains($ids['STORE_ID'])) { $bad += $f }
 }
 if ($bad.Count -gt 0) {
     Write-Host ('STOP: these files do not contain the Chrome add-on IDs from chrome\ids.txt: ' + ($bad -join ', '))

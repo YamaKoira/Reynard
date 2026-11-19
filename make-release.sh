@@ -39,7 +39,6 @@ if grep -q 'reynard-dev@' release-out/reynard; then devbuild; fi
 load_chrome_ids
 for f in scripts/install.sh scripts/install-local.bat; do
     grep -q "$RELEASE_ID" "$f" || { echo "STOP: $f does not contain the release Chrome ID $RELEASE_ID (see chrome/ids.txt)" >&2; exit 1; }
-    if [ -n "$STORE_ID" ]; then grep -q "$STORE_ID" "$f" || { echo "STOP: $f does not contain the store ID $STORE_ID (see chrome/ids.txt)" >&2; exit 1; }; fi
 done
 
 # the version number comes from the add-on manifest
@@ -57,14 +56,6 @@ else
 fi
 echo "== Chrome add-on =="
 tools/make-chrome-extension.sh release-out/extension-chrome release
-tools/make-chrome-extension.sh /tmp/reynard-chrome-store.$$ store
-chrome_zip="$PWD/release-out/Reynard-chrome-$ver.zip"
-if have bsdtar; then
-    bsdtar -a -c -f "$chrome_zip" -C /tmp/reynard-chrome-store.$$ .
-else
-    (cd /tmp/reynard-chrome-store.$$ && zip -q -r -X "$chrome_zip" .)
-fi
-rm -rf /tmp/reynard-chrome-store.$$
 # checksum, so people can verify the download
 (cd release-out && sha256sum reynard > SHA256SUMS.txt)
 
@@ -74,4 +65,4 @@ ls release-out
 echo
 echo "Handing it over directly? Send reynard, install.sh and uninstall.sh together."
 echo "Submit Reynard-extension-$ver.zip to addons.mozilla.org."
-echo "Chrome: Reynard-chrome-$ver.zip is for the Chrome Web Store; extension-chrome/ loads unpacked."
+echo "Chrome: load the extension-chrome/ folder unpacked (chrome://extensions, Developer mode)."

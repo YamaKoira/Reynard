@@ -22,9 +22,7 @@ rem =====================================================================
 rem ---- the only things that may need editing ----
 set "EXT_ID=reynard@reynard-yamakoira"
 set "CHROME_ID=gcdmloapgnddiblfbcpoonneajgmhpmj"
-set "CHROME_STORE_ID="
 set "HOST_NAME=io.reynard.host"
-set "ADDON_URL="
 set "YTDLP_URL=https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
 set "FFMPEG_URL=https://github.com/yt-dlp/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip"
 set "DENO_URL=https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip"
@@ -114,7 +112,7 @@ if errorlevel 1 goto :fail
 reg add "HKCU\Software\Mozilla\NativeMessagingHosts\%HOST_NAME%" /ve /t REG_SZ /d "%RF_DIR%\%HOST_NAME%.json" /f >nul
 if errorlevel 1 goto :fail
 rem ---- the same for Chrome, Edge, Brave and Chromium (harmless if you do not use them) ----
-powershell -NoProfile -Command "$o = @('chrome-extension://' + $env:CHROME_ID + '/'); if ($env:CHROME_STORE_ID) { $o += 'chrome-extension://' + $env:CHROME_STORE_ID + '/' }; $m = [ordered]@{ name=$env:HOST_NAME; description='Reynard native host'; path=(Join-Path $env:RF_DIR 'reynard.exe'); type='stdio'; allowed_origins=$o }; $out = Join-Path $env:RF_DIR ($env:HOST_NAME + '.chrome.json'); [IO.File]::WriteAllText($out, ($m | ConvertTo-Json), (New-Object Text.UTF8Encoding $false))"
+powershell -NoProfile -Command "$o = @('chrome-extension://' + $env:CHROME_ID + '/'); $m = [ordered]@{ name=$env:HOST_NAME; description='Reynard native host'; path=(Join-Path $env:RF_DIR 'reynard.exe'); type='stdio'; allowed_origins=$o }; $out = Join-Path $env:RF_DIR ($env:HOST_NAME + '.chrome.json'); [IO.File]::WriteAllText($out, ($m | ConvertTo-Json), (New-Object Text.UTF8Encoding $false))"
 if errorlevel 1 goto :fail
 for %%K in ("Google\Chrome" "Microsoft\Edge" "BraveSoftware\Brave-Browser" "Chromium") do reg add "HKCU\Software\%%~K\NativeMessagingHosts\%HOST_NAME%" /ve /t REG_SZ /d "%RF_DIR%\%HOST_NAME%.chrome.json" /f >nul
 if errorlevel 1 goto :fail
@@ -126,21 +124,12 @@ if errorlevel 1 goto :exefail
 echo.
 echo   Reynard is installed.
 echo   Last step: add the Reynard add-on to your browser.
-echo   Chrome, Edge, Brave: chrome://extensions, Developer mode, Load unpacked (the extension-chrome folder),
-echo   or install it from the Chrome Web Store once it is published.
+echo   Chrome, Edge, Brave: chrome://extensions, Developer mode, Load unpacked (the extension-chrome folder).
 echo   Firefox:
-if defined ADDON_URL goto :addon_page
 echo   A signed add-on file: drag it into a Firefox window.
 echo   Unsigned, for trying it out: in Firefox open about:debugging#/runtime/this-firefox,
 echo   choose Load Temporary Add-on and pick extension\manifest.json from the project.
 goto :done
-
-:addon_page
-echo   %ADDON_URL%
-echo.
-choice /c YN /m "Open that page in your browser now"
-if errorlevel 2 goto :done
-start "" "%ADDON_URL%"
 
 :done
 echo.

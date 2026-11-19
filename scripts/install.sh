@@ -4,7 +4,7 @@
 #
 #  What it does, in order:
 #    1. Puts reynard into  ~/.local/share/reynard  (the "reynard" file next to this
-#       script or, if there is none, downloaded from REYNARD_URL below)
+#       script, put there by make-release.sh)
 #    2. Downloads yt-dlp (the official standalone build) into  ~/.local/share/reynard/bin
 #       (skipped if it is already there; the popup's Update button keeps it current)
 #    3. Tells Firefox where reynard is: one small .json file in
@@ -56,11 +56,8 @@ remove_chrome_hosts() {
 }
 
 # ---- the only things that ever need editing ----
-REYNARD_URL=""   # only used when there is no "reynard" file next to this script
-ADDON_URL=""     # optional: where people get the signed add-on
 EXT_ID="reynard@reynard-yamakoira"
 CHROME_ID="gcdmloapgnddiblfbcpoonneajgmhpmj"   # the add-on loaded unpacked (see chrome/ids.txt)
-CHROME_STORE_ID=""                            # the ID the Chrome Web Store gives the add-on, once it has one
 HOST_NAME="io.reynard.host"
 RF_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/reynard"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -110,19 +107,13 @@ echo "[1/3] Installing reynard ..."
 mkdir -p "$RF_DIR/bin"
 if [ -f "$HERE/reynard" ]; then
     src="$HERE/reynard"
-elif [ -n "$REYNARD_URL" ]; then
-    echo "      Downloading reynard ..."
-    curl -L -f --retry 2 --progress-bar -o "$RF_DIR/reynard.part" "$REYNARD_URL" \
-        || { rm -f "$RF_DIR/reynard.part"; fail "The download failed. Check your internet connection and try again."; }
-    src="$RF_DIR/reynard.part"
 else
-    fail "There is no \"reynard\" file next to this script and no REYNARD_URL set at the top of it."
+    fail "There is no \"reynard\" file next to this script. Run make-release.sh in the project folder and use the install.sh in release-out."
 fi
 # copy next to it, then rename: this works even while the old one is running
 cp "$src" "$RF_DIR/reynard.new"
 chmod 755 "$RF_DIR/reynard.new"
 mv -f "$RF_DIR/reynard.new" "$RF_DIR/reynard"
-rm -f "$RF_DIR/reynard.part"
 
 # ---- 2. yt-dlp ----
 echo "[2/3] Checking yt-dlp ..."
@@ -151,7 +142,7 @@ cat > "$HOME/.mozilla/native-messaging-hosts/$HOST_NAME.json" <<JSON
 }
 JSON
 
-write_chrome_hosts "$HOST_NAME" "Reynard native host" "$RF_DIR/reynard" "$CHROME_ID" "$CHROME_STORE_ID"
+write_chrome_hosts "$HOST_NAME" "Reynard native host" "$RF_DIR/reynard" "$CHROME_ID"
 
 # ---- check that it starts (also creates your settings file) ----
 "$RF_DIR/reynard" settings || fail "reynard was installed but would not start."
@@ -161,12 +152,5 @@ echo "  Reynard is installed."
 echo "  Last step: add the Reynard add-on to your browser."
 echo "    Firefox: about:addons, the gear icon, Install Add-on From File."
 echo "    Chrome family: chrome://extensions, Developer mode, Load unpacked (the extension-chrome"
-echo "    folder), or install it from the Chrome Web Store once it is published."
-if [ -n "$ADDON_URL" ]; then
-    echo "  $ADDON_URL"
-    if [ -t 0 ] && have xdg-open; then
-        read -r -p "  Open that page in your browser now? [y/N] " answer
-        case "$answer" in y|Y) xdg-open "$ADDON_URL" >/dev/null 2>&1 || true ;; esac
-    fi
-fi
+echo "    folder)."
 echo

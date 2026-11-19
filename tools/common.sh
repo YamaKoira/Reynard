@@ -113,17 +113,16 @@ remove_chrome_hosts() {
 }
 
 # shellcheck disable=SC2034  # the variables are read by the scripts that source this file
-# Reads chrome/ids.txt into RELEASE_ID, RELEASE_KEY, DEV_ID, DEV_KEY and STORE_ID.
+# Reads chrome/ids.txt into RELEASE_ID, RELEASE_KEY, DEV_ID and DEV_KEY.
 load_chrome_ids() {
     local k v
-    RELEASE_ID="" RELEASE_KEY="" DEV_ID="" DEV_KEY="" STORE_ID=""
+    RELEASE_ID="" RELEASE_KEY="" DEV_ID="" DEV_KEY=""
     while IFS='=' read -r k v; do
         case "$k" in
             RELEASE_ID) RELEASE_ID="$v" ;;
             RELEASE_KEY) RELEASE_KEY="$v" ;;
             DEV_ID) DEV_ID="$v" ;;
             DEV_KEY) DEV_KEY="$v" ;;
-            STORE_ID) STORE_ID="$v" ;;
         esac
     done < chrome/ids.txt
     { [ -n "$RELEASE_ID" ] && [ -n "$DEV_ID" ] && [ -n "$RELEASE_KEY" ] && [ -n "$DEV_KEY" ]; } || { echo "chrome/ids.txt is incomplete" >&2; return 1; }

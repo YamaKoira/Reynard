@@ -55,26 +55,50 @@ function pickUrl(info) {
   return candidates.find((u) => u && /^https?:/i.test(u)) || null;
 }
 
-// On X, a right-click on a video gives no usable address (blob:), so pickUrl lands on the page
-// address, which is the wrong post or not a post at all. Then the content script (x-post.js)
-// is asked which post was under the cursor. Anything else is left exactly as pickUrl says.
+// On X, a right-click on a video often gives no usable address (blob:), so pickUrl lands on the
+// page address, which is the wrong post or not a post at all. Or the video sits inside a link to
+// its own post (timeline), so pickUrl takes that link but knows nothing about which videos are
+// meant. In both cases the content script (x-post.js) is asked which post was under the cursor.
+// A link to a DIFFERENT post than the content script names is kept as it is. Anything else is
+// left exactly as pickUrl says. The choice is logged ("[Reynard] picked:").
 const X_PAGE = /^https?:\/\/(?:www\.)?(?:x|twitter)\.com(?:[/?#]|$)/i;
 const X_POST = /^https:\/\/(?:x|twitter)\.com\/[A-Za-z0-9_]+\/status\/\d+$/;
+function xStatusId(u) {
+  try {
+    const p = new URL(u);
+    if (!/^(?:www\.)?(?:x|twitter)\.com$/i.test(p.hostname)) return null;
+    const m = /^\/[A-Za-z0-9_]+\/status\/(\d+)/.exec(p.pathname);
+    return m ? m[1] : null;
+  } catch (_) {
+    return null;
+  }
+}
 async function pickUrlWithPost(info, tab) {
   const url = pickUrl(info);
   const plain = { url, items: "" };
-  if (!url || url !== info.pageUrl || !X_PAGE.test(url) || !tab || tab.id == null) return plain;
+  if (!url || !tab || tab.id == null || !X_PAGE.test(info.pageUrl || "")) return plain;
+  const isPage = url === info.pageUrl;
+  const linkId = isPage ? null : xStatusId(url);
+  if (!isPage && !linkId) return plain; // a link to something else: unchanged
+  const done = (how, r) => {
+    console.log(`[Reynard] picked: ${how} -> ${r.url}` + (r.items ? ` (items ${r.items})` : ""));
+    return r;
+  };
   try {
     const reply = await browser.tabs.sendMessage(tab.id, { type: "reynard-post" }, { frameId: info.frameId || 0 });
     if (reply && typeof reply.url === "string" && X_POST.test(reply.url)) {
-      const items = typeof reply.items === "string" && /^\d{1,3}(-\d{1,3})?$/.test(reply.items) ? reply.items : "";
-      return { url: reply.url, items };
+      if (isPage || xStatusId(reply.url) === linkId) {
+        const items = typeof reply.items === "string" && /^\d{1,3}(-\d{1,3})?$/.test(reply.items) ? reply.items : "";
+        return done(isPage ? "post from the page" : "post link confirmed by the page", { url: reply.url, items });
+      }
+      return done("link to another post, kept", plain);
     }
+    return done(isPage ? "page address (post unknown)" : "link (post unknown)", plain);
   } catch (err) {
     // Usually: this tab was open before the add-on was installed or reloaded. Reload the tab.
-    console.log("[Reynard] no answer from the page (reload the tab?), using the page address:", err.message);
+    console.log("[Reynard] no answer from the page (reload the tab?):", err.message);
+    return done(isPage ? "page address" : "link", plain);
   }
-  return plain;
 }
 
 // Every message is also written to the Browser Console (Ctrl+Shift+J).

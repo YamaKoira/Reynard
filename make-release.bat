@@ -6,7 +6,6 @@ rem    install-local.bat, uninstall.bat  for your users (install-local.bat uses 
 rem    Reynard-extension-VERSION.zip     the add-on, to submit to addons.mozilla.org
 rem
 rem  Not to be confused with setup.bat, which makes the DEV copy in dist-dev.
-rem  Before running this, set ADDON_URL at the top of scripts\install-local.bat.
 rem =====================================================================
 setlocal
 cd /d "%~dp0"
@@ -47,11 +46,6 @@ if errorlevel 1 goto :fail
 echo == Chrome add-on ==
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\make-chrome-extension.ps1 -Out release-out\extension-chrome -Mode release
 if errorlevel 1 goto :fail
-powershell -NoProfile -ExecutionPolicy Bypass -File tools\make-chrome-extension.ps1 -Out release-out\_chrome-store -Mode store
-if errorlevel 1 goto :fail
-tar.exe -a -c -f "release-out\Reynard-chrome-%VER%.zip" -C release-out\_chrome-store .
-if errorlevel 1 goto :fail
-rmdir /s /q release-out\_chrome-store
 
 rem checksum, so people can verify the download (optional, failure is not fatal)
 powershell -NoProfile -Command "(Get-FileHash -Algorithm SHA256 release-out\reynard.exe).Hash.ToLower() + '  reynard.exe'" > release-out\SHA256SUMS.txt
@@ -62,7 +56,7 @@ dir /b release-out
 echo.
 echo Upload reynard.exe, install-local.bat and uninstall.bat to your release (keep the name reynard.exe).
 echo Submit Reynard-extension-%VER%.zip to addons.mozilla.org.
-echo Chrome: Reynard-chrome-%VER%.zip is for the Chrome Web Store; extension-chrome\ loads unpacked.
+echo Chrome: load the extension-chrome\ folder unpacked (chrome://extensions, Developer mode).
 pause
 exit /b 0
 
