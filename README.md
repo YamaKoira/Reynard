@@ -10,7 +10,7 @@ Right-click anything in your browser and have it downloaded by [yt-dlp](https://
 
 Windows and Arch Linux, with Firefox, or with Chrome, Edge, Brave or Chromium. (Other Linux distributions will probably work too, but only Arch is tested.)
 
-**Firefox add-on, already signed: [Click me for the extension](https://addons.mozilla.org/firefox/downloads/file/5276264/0724d8dc83d643f88e29-0.8.1.xpi)**. It only adds the right-click menu and the fox; you still build and install Reynard itself (below), because the add-on can't download anything alone.
+**Firefox add-on, already signed: [Click me for the extension](https://github.com/YamaKoira/Reynard/releases/download/Release/Reynard-0.8.1.xpi)**. It only adds the right-click menu and the fox; you still build and install Reynard itself (below), because the add-on can't download anything alone.
 
 ## Install
 
@@ -50,7 +50,7 @@ To update: `git pull`, `./make-release.sh`, then `./install.sh` again.
 
 Firefox release builds only keep add-ons that Mozilla has signed. The easy way is the signed one:
 
-- **Signed add-on (any Firefox, permanent):** [Click me for the extension](https://addons.mozilla.org/firefox/downloads/file/5276264/0724d8dc83d643f88e29-0.8.1.xpi). Click it and confirm. It works on both Windows and Linux.
+- **Signed add-on (any Firefox, permanent):** [Click me for the extension](https://github.com/YamaKoira/Reynard/releases/download/Release/Reynard-0.8.1.xpi). Click it and confirm. It works on both Windows and Linux.
 
 If you change the add-on's code, the signed one won't contain your changes. Then:
 
