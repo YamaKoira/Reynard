@@ -10,42 +10,62 @@ Right-click anything in your browser and have it downloaded by [yt-dlp](https://
 
 Windows and Arch Linux, with Firefox, or with Chrome, Edge, Brave or Chromium. (Other Linux distributions will probably work too, but only Arch is tested.)
 
+**Firefox add-on, already signed: [Click me for the extension](https://addons.mozilla.org/firefox/downloads/file/5276264/0724d8dc83d643f88e29-0.8.1.xpi)**. It only adds the right-click menu and the fox; you still build and install Reynard itself (below), because the add-on can't download anything alone.
+
 ## Install
 
-You need Windows 10 (version 1803 or later) or Windows 11, and Firefox.
+There is no download page: you build Reynard from this repository on the computer you use it on. That way the Windows and Linux builds never get out of sync, and you run exactly what you can read. The first build takes a few minutes; later ones are quick.
 
-1. Put **`reynard.exe`** and **`install-local.bat`** in the same folder and double-click `install-local.bat`. It's a plain text script: it tells you exactly what it will do and waits for a key press before touching anything. It copies Reynard from its own folder (and refuses an exe that isn't a release build), and puts yt-dlp, ffmpeg and Deno into `%LOCALAPPDATA%\Reynard` and tells Firefox where to find Reynard. No admin rights are needed.
-2. Add the **Reynard add-on** to Firefox. The installer offers to open the page for you.
-3. Pin the fox to the toolbar: puzzle-piece menu, then *Pin to Toolbar*.
+### Windows
 
-Windows may show a "protected your PC" warning for files downloaded from the internet. Choose *More info*, then *Run anyway*. Read the script first if you like; that's why it's a script. Windows Security (Defender) may also flag `reynard.exe` as a trojan (for example `Trojan:Win32/Bearfoos.A!ml`). That `!ml` means a machine-learning guess, and new unsigned programs that start other programs (here yt-dlp and ffmpeg) get it often. If it happens: *Windows Security, Virus & threat protection, Protection history*, restore the file and choose *Allow on device*. You can also report it as a false positive at <https://www.microsoft.com/wdsi/filesubmission>. The source is all in this repository, so you can build it yourself instead.
+You need Windows 10 (version 1803 or later) or Windows 11, [Rust](https://rust-lang.org/learn/get-started/) with the Visual Studio Build Tools ("Desktop development with C++"), and a browser.
 
-If `yt-dlp.exe`, `ffmpeg.exe`, `ffprobe.exe` and `deno.exe` are in that folder too, it uses them instead of downloading them.
+1. In the project folder, run **`make-release.bat`**. It builds the real `reynard.exe` and collects everything into `release-out\`: `reynard.exe`, `install-local.bat`, `uninstall.bat`, the add-on zips and the unpacked Chrome add-on.
+2. Run **`release-out\install-local.bat`** (double-click is fine). It's a plain text script: it tells you exactly what it will do and waits for a key press before touching anything. It copies Reynard into `%LOCALAPPDATA%\Reynard` (and refuses an exe that isn't a release build), puts yt-dlp, ffmpeg and Deno in its `bin` folder (copied from `release-out` if you put them there, otherwise downloaded) and tells your browser where to find Reynard. No admin rights are needed.
+3. Add the **Reynard add-on** to your browser (see below), and pin the fox to the toolbar.
 
-Run `install-local.bat` again at any time to update Reynard. yt-dlp and ffmpeg are kept; yt-dlp updates from inside the add-on (see below).
+Windows Security (Defender) may also flag `reynard.exe` as a trojan (for example `Trojan:Win32/Bearfoos.A!ml`). That `!ml` means a machine-learning guess, and new unsigned programs that start other programs (here yt-dlp and ffmpeg) get it often. If it happens: *Windows Security, Virus & threat protection, Protection history*, restore the file and choose *Allow on device*. You can also report it as a false positive at <https://www.microsoft.com/wdsi/filesubmission>. You built it yourself from this source, so you know what is in it.
 
-## Install on Arch Linux
+To update: `git pull`, run `make-release.bat`, then `install-local.bat` again. Your settings, yt-dlp and ffmpeg are kept; yt-dlp updates from inside the add-on (see below).
 
-You need Firefox from the repositories (the Snap and Flatpak builds can't start native hosts) and three packages:
+### Arch Linux
+
+You need Firefox from the repositories (the Snap and Flatpak builds can't start native hosts), or Chromium, Chrome, Brave, and these packages:
 
 ```
-sudo pacman -S --needed curl ffmpeg deno
+sudo pacman -S --needed rust curl ffmpeg deno
 ```
 
-1. Put **`reynard`**, **`install.sh`** and **`uninstall.sh`** in one folder and run `./install.sh`. It checks that curl, ffmpeg and Deno are installed (and prints the pacman command if not), puts Reynard in `~/.local/share/reynard`, downloads yt-dlp (the official standalone build, which the popup can update), and tells Firefox where Reynard is with one small `.json` file in `~/.mozilla/native-messaging-hosts`. No root needed.
-2. Add the **Reynard add-on** to Firefox: `about:addons`, the gear icon, *Install Add-on From File*.
-3. Pin the fox to the toolbar.
+(`rustup` instead of `rust` works too: `sudo pacman -S rustup && rustup default stable`.)
+
+1. In the project folder, run `./make-release.sh`. It builds the real `reynard` into `release-out/` together with `install.sh`, `uninstall.sh`, the add-on zips and a checksum file. It refuses to continue if the binary turns out to be a dev build.
+2. Run `cd release-out && ./install.sh`. It checks that curl, ffmpeg and Deno are installed (and prints the pacman command if not), puts Reynard in `~/.local/share/reynard`, downloads yt-dlp (the official standalone build, which the popup can update), and tells your browser where Reynard is with one small `.json` file per browser. No root needed.
+3. Add the **Reynard add-on** to your browser (see below), and pin the fox to the toolbar.
 
 Your settings are in `~/.config/reynard/settings.toml`. The *Browse...* button uses `zenity` or `kdialog` when one is installed (`sudo pacman -S zenity`); without them, type the folder path. Run `./install.sh` again to update Reynard, `./uninstall.sh` to remove it. Run the scripts from a terminal; double-clicking them in a file manager is not supported. Everything below applies to both systems; where it differs, it says so.
 
-## Install in Chrome, Edge, Brave or Chromium
+To update: `git pull`, `./make-release.sh`, then `./install.sh` again.
 
-It is the same Reynard program with a Chrome version of the add-on. The installers (`install-local.bat` and `install.sh`) already tell Chrome, Edge, Brave and Chromium where Reynard is (registry keys on Windows, one `.json` file per browser on Linux, for the browsers that exist), so only the add-on is left:
+### The add-on in Firefox
+
+Firefox release builds only keep add-ons that Mozilla has signed. The easy way is the signed one:
+
+- **Signed add-on (any Firefox, permanent):** [Click me for the extension](https://addons.mozilla.org/firefox/downloads/file/5276264/0724d8dc83d643f88e29-0.8.1.xpi). Click it and confirm. It works on both Windows and Linux.
+
+If you change the add-on's code, the signed one won't contain your changes. Then:
+
+- **Any Firefox, for trying it out:** open `about:debugging#/runtime/this-firefox`, choose *Load Temporary Add-on* and pick `extension/manifest.json` from the project. It disappears when Firefox closes.
+- **Firefox Developer Edition, Nightly or ESR:** set `xpinstall.signatures.required` to `false` in `about:config`, then in `about:addons` use the gear icon, *Install Add-on From File*, and pick `release-out/Reynard-extension-<version>.zip`. It stays.
+- **Sign your own build:** upload that zip to [addons.mozilla.org](https://addons.mozilla.org/developers/) as an *unlisted* add-on (free) and install the signed file you get back.
+
+### The add-on in Chrome, Edge, Brave or Chromium
+
+It is the same Reynard program with a Chrome version of the add-on. The installers already tell Chrome, Edge, Brave and Chromium where Reynard is (registry keys on Windows, one `.json` file per browser on Linux, for the browsers that exist), so only the add-on is left:
 
 1. Open `chrome://extensions` (or `edge://extensions`) and switch on **Developer mode**.
-2. Choose **Load unpacked** and pick the **`extension-chrome`** folder (from `release-out`).
+2. Choose **Load unpacked** and pick the **`extension-chrome`** folder in `release-out`. Keep that folder where it is: the browser loads the add-on from it.
 
-Its ID is fixed by a key in its manifest, which is what lets the installer's registration match it. Chrome keeps reminding you that an unpacked add-on is in developer mode; publishing it in the Chrome Web Store removes that. Differences from Firefox: Chrome puts the background to sleep when nothing is happening, so the toolbar fox can take up to about 30 seconds to notice a download that was started elsewhere; during your own downloads it updates every 2 seconds as usual.
+Its ID is fixed by a key in its manifest, which is what lets the installer's registration match it. Chrome keeps reminding you that an unpacked add-on is in developer mode. Differences from Firefox: Chrome puts the background to sleep when nothing is happening, so the toolbar fox can take up to about 30 seconds to notice a download that was started elsewhere; during your own downloads it updates every 2 seconds as usual.
 
 ## Using it
 
@@ -195,9 +215,9 @@ HKCU\Software\Mozilla\NativeMessagingHosts\io.reynard.host     (one registry key
 
 Run `uninstall.bat`. It removes the registry key and the Reynard folder (and asks before deleting your settings). Then remove the add-on in Firefox (`about:addons`). Your downloaded videos are never touched. On Linux, run `./uninstall.sh`: it removes `~/.local/share/reynard` and the `.json` file in `~/.mozilla/native-messaging-hosts`, and asks before deleting `~/.config/reynard`.
 
-## Building from source
+## Development copy
 
-You need [Rust](https://rust-lang.org/learn/get-started/) and the Visual Studio Build Tools ("Desktop development with C++"). [Firefox Developer Edition](https://www.mozilla.org/firefox/developer/) is handy for loading the unsigned add-on.
+If you change the code and want to try it next to your installed Reynard, use the development copy. It needs the same tools as the install above.
 
 ```
 setup.bat
@@ -223,7 +243,7 @@ chrome\         the Chrome (Manifest V3) manifest, service worker and add-on IDs
 setup.bat       build and register the development copy (dist-dev\)
 ```
 
-### Building on Arch Linux
+### Development copy on Arch Linux
 
 ```
 sudo pacman -S --needed rust curl ffmpeg deno
@@ -231,8 +251,6 @@ sudo pacman -S --needed rust curl ffmpeg deno
 ```
 
 (`rustup` instead of `rust` works too: `sudo pacman -S rustup && rustup default stable`.) `setup.sh` is the counterpart of `setup.bat`: it builds the same source into `dist-dev/` as a separate dev copy (host `io.reynard.host.dev`, add-on ID `reynard-dev@...`, its own settings and history), downloads yt-dlp, and registers the dev host in `~/.mozilla/native-messaging-hosts`. Test it exactly like on Windows: *Load Temporary Add-on* with `dist-dev/extension/manifest.json`, or from the terminal with `dist-dev/reynard download <url>`. An installed Reynard is not touched.
-
-`./make-release.sh` builds the real thing into `release-out/`: `reynard`, `install.sh`, `uninstall.sh`, the add-on zip and `SHA256SUMS.txt`. Hand over `reynard`, `install.sh` and `uninstall.sh` together; `install.sh` uses the `reynard` next to it (or `REYNARD_URL` at the top of the script, if you host it). It refuses to continue if the binary turns out to be a dev build. The add-on is the same on both systems, so one signed add-on serves both.
 
 The platform differences live in a few `cfg` blocks in `src/`: Windows values are pinned by tests, Cancel stops yt-dlp's whole process group on Linux (`taskkill /T` on Windows), and the folder dialog is `zenity`/`kdialog` instead of PowerShell. `.gitattributes` keeps `.sh` files on Unix line endings.
 
