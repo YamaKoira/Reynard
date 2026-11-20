@@ -1,6 +1,5 @@
-//! Host mode: Firefox started us. We speak its stdin/stdout protocol and, for
-//! now, start downloads as separate background processes. (Later this becomes
-//! a thin relay to the tray app.)
+//! Host mode: the browser started us. We speak its stdin/stdout protocol and start
+//! each download as a separate background process, so it carries on by itself.
 
 use crate::modes::Mode;
 use crate::settings::{self, Settings};
@@ -209,5 +208,79 @@ fn keep_unsent_keys(incoming: &Value, new: &mut Settings) {
                 site.include_id = current.site[i].include_id;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // None of these touch settings.toml or the job history: every message here is
+    // answered (or refused) before anything is loaded or saved.
+
+    #[test]
+    fn ping_answers_with_the_version() {
+        let r = handle(&json!({"type": "ping"}));
+        assert_eq!(r["ok"], true);
+        assert_eq!(r["version"], env!("CARGO_PKG_VERSION"));
+    }
+
+    #[test]
+    fn unknown_or_missing_types_are_refused() {
+        for msg in [json!({"type": "nope"}), json!({}), json!({"type": 7})] {
+            let r = handle(&msg);
+            assert_eq!(r["ok"], false);
+            assert_eq!(r["error"], "unknown message type");
+        }
+    }
+
+    #[test]
+    fn download_refuses_an_unknown_kind() {
+        let r = handle(&json!({"type": "download", "url": "https://x.test/v", "kind": "mp3"}));
+        assert_eq!(r["ok"], false);
+        assert_eq!(r["error"], "unknown download kind");
+    }
+
+    #[test]
+    fn download_refuses_a_url_that_is_not_http() {
+        for url in ["", "blob:https://x.test/abc", "file:///etc/passwd"] {
+            let r = handle(&json!({"type": "download", "url": url, "kind": "video"}));
+            assert_eq!(r["ok"], false, "{url}");
+            assert_eq!(r["error"], "not an http(s) URL", "{url}");
+        }
+    }
+
+    #[test]
+    fn half_empty_settings_are_never_saved() {
+        let expected = "incomplete settings, nothing saved";
+        for settings in [json!(null), json!({}), json!({"general": {}}), json!({"site": []}), json!({"general": [], "site": []})] {
+            let r = handle(&json!({"type": "save_settings", "settings": settings}));
+            assert_eq!(r["ok"], false);
+            assert_eq!(r["error"], expected);
+        }
+        let r = handle(&json!({"type": "save_settings"}));
+        assert_eq!(r["error"], expected);
+    }
+
+    #[test]
+    fn job_actions_need_a_job_id() {
+        for t in ["kill", "open", "reveal"] {
+            let r = handle(&json!({"type": t}));
+            assert_eq!(r["ok"], false, "{t}");
+            assert_eq!(r["error"], "missing job id", "{t}");
+        }
+    }
+
+    #[test]
+    fn job_id_reads_numbers_only() {
+        assert_eq!(job_id(&json!({"id": 12})), Some(12));
+        assert_eq!(job_id(&json!({"id": "12"})), None);
+        assert_eq!(job_id(&json!({})), None);
+    }
+
+    #[test]
+    fn unit_turns_a_result_into_a_reply() {
+        assert_eq!(unit(Ok(())), json!({"ok": true}));
+        assert_eq!(unit(Err("boom".into())), json!({"ok": false, "error": "boom"}));
     }
 }

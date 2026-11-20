@@ -1,6 +1,6 @@
 // Reynard: one binary, two modes.
 //  * Started by Firefox (native messaging)  -> host mode, see host.rs
-//  * Started by you or by a background job  -> command line (tray app comes later)
+//  * Started by you or by a background job  -> command line
 
 mod host;
 mod jobs;
